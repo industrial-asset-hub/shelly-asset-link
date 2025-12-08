@@ -1,7 +1,7 @@
 {
-  "subnet": "10.0.0",
-  "startIP": 160,
-  "endIP": 240,
+  "subnet": "192.168.178",
+  "startIP": 1,
+  "endIP": 254,
   "timeout": 120000,
   "maxParallel": 20
 }
