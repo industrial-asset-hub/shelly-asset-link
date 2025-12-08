@@ -1,0 +1,142 @@
+# SPDX-FileCopyrightText: 2025 Machine Builder AG
+#
+# SPDX-License-Identifier: MIT
+---
+project_name: shelly-asset-link
+
+version: 2
+
+before:
+  hooks:
+    - go generate ./...
+    - go mod vendor
+
+builds:
+  - id: shelly-asset-link
+    binary: shelly-asset-link
+    tags:
+      - webserver
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -extldflags '-static'
+
+      - -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}}
+
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [ 'tar.gz' ]
+    files:
+      - vendor\
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [ 'zip' ]
+
+
+
+nfpms:
+  - id: shelly-asset-link
+    package_name: shelly-asset-link
+    ids:
+      - shelly-asset-link
+    vendor: Machine Builder AG
+    homepage: https://www.device-builder.local
+    maintainer: Michael Leipold <david@david-builder.local>
+    description: |-
+      Shelly Asset Link
+    license: Machine Builder AG 2025
+    formats:
+      - deb
+    bindir: /usr/bin
+    version_metadata: git
+    section: default
+    priority: extra
+    contents:
+      - src: contrib/shelly-asset-link.service
+        dst: /lib/systemd/system/shelly-asset-link.service
+        type: "config"
+    scripts:
+      postinstall: "contrib/postinstall.bash"
+      postremove: "contrib/postremove.bash"
+
+
+checksum:
+  name_template: "{{.ProjectName}}_{{.Version}}.sha256"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+  
+
+dockers:
+  - id: shelly-asset-link-linux-amd64
+    ids:
+      - shelly-asset-link
+    image_templates:
+      - "shelly-asset-link:{{ .Tag }}-linux-amd64"
+      - "shelly-asset-link:latest-linux-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+  - id: shelly-asset-link-arm64
+    ids:
+      - shelly-asset-link
+    image_templates:
+      - "shelly-asset-link:{{ .Tag }}-linux-arm64"
+      - "shelly-asset-link:latest-linux-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - --platform=linux/arm64
+
+docker_manifests:
+  - name_template: "shelly-asset-link:{{ .Tag }}"
+    image_templates:
+      - "shelly-asset-link:{{ .Tag }}-linux-amd64"
+      - "shelly-asset-link:{{ .Tag }}-linux-arm64"
+  - name_template: "shelly-asset-link:latest"
+    image_templates:
+      - "shelly-asset-link:latest-linux-amd64"
+      - "shelly-asset-link:latest-linux-arm64"
+
+changelog:
+  sort: asc
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

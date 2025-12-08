@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2025 Michael Leipold (https://github.com/mlp0911)
+#
+# SPDX-License-Identifier: MIT
+
+version: "2"
+
+run:
+  concurrency: 4
+
+  go: "1.24.9"
+
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 5m
+
+  # exit code when at least one issue was found, default is 1
+  issues-exit-code: 1
+
+  # include test files or not, default is true
+  tests: true
+
+  # list of build tags, all linters use it. Default is empty list.
+  build-tags: []
+
+  # by default isn't set. If set we pass it to "go list -mod={option}". From "go help modules":
+  # If invoked with -mod=readonly, the go command is disallowed from the implicit
+  # automatic updating of go.mod described above. Instead, it fails when any changes
+  # to go.mod are needed. This setting is most useful to check that go.mod does
+  # not need updates, such as in a continuous integration and testing system.
+  # If invoked with -mod=vendor, the go command assumes that the vendor
+  # directory holds the correct copies of dependencies and ignores
+  # the dependency descriptions in go.mod.
+  modules-download-mode: readonly
+
+  # Allow multiple parallel golangci-lint instances running.
+  # If false (default) - golangci-lint acquires file lock on start.
+  allow-parallel-runners: true
+
+output:
+  # colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
+  # default is "colored-line-number"
+  formats:
+    text:
+      path: stdout
+      colors: true
+
+      # print lines of code with issue, default is true
+      print-issued-lines: true
+
+      # print linter name in the end of issue text, default is true
+      print-linter-name: true
+
+  # add a prefix to the output file references; default is no prefix
+  path-prefix: ""
+
+  # sorts results by: filepath, line, column, severity, and linter
+  sort-order:
+    - file
+    - severity
+    - linter
+
+linters:
+  enable:
+    - gocritic
+    - staticcheck
+    - gocyclo
+  settings:
+    staticcheck:
+      # https://staticcheck.io/docs/options#checks
+      checks: ["all", "-ST1000", "-ST1003", "-ST1005", "-SA1019"]
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
+issues:
+  # make issues output unique by line, default is true
+  uniq-by-line: true

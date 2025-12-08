@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# SPDX-FileCopyrightText: 2025 Michael Leipold (https://github.com/mlp0911)
+#
+# SPDX-License-Identifier: MIT
+#
+
+[Unit]
+Description=Shelly Asset Link
+After=network.target
+
+[Service]
+ExecStartPre=/bin/sh -c "systemctl set-environment IAH_AssetLink_IP=$(hostname -i)"
+ExecStart=/usr/bin/shelly-asset-link --grpc-registry-address=localhost:50051 --grpc-server-address=${IAH_AssetLink_IP}:8080 --grpc-server-endpoint-address=${IAH_AssetLink_IP}
+Restart=on-failure
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

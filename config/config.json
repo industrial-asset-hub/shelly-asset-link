@@ -1,0 +1,7 @@
+{
+  "subnet": "10.0.0",
+  "startIP": 160,
+  "endIP": 240,
+  "timeout": 120000,
+  "maxParallel": 20
+}

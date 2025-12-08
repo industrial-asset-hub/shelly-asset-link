@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2025 Michael Leipold (https://github.com/mlp0911)
+#
+# SPDX-License-Identifier: MIT
+#
+# Starts the shelly-asset-link Asset Link for Industrial Asset Hub (IAH)
+# Requires config directory to establish fallback config 
+# if option and filter have not been handed over via API
+# Depends on an IAH gateway
+
+services:
+  shelly-asset-link:
+    restart: always
+    image: 'shelly-asset-link:latest'
+    command:
+      - '-grpc-server-endpoint-address=shelly-asset-link'
+      - '-grpc-server-address=:8088'
+      - '-grpc-registry-address=grpc-server-registry:50051'
+    environment:
+      - AL_CONFIG_PATH=/config/config.json
+    volumes:
+      - ./config/config.json:/config/config.json:ro
+    networks:
+      - 01-cdm
+    ports:
+      - 8088:8088
+
+networks:
+  01-cdm:
+    name: cdm
+    external: true
