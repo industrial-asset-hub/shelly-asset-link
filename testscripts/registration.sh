@@ -7,7 +7,7 @@
 nohup go run -tags webserver main.go --grpc-registry-address=localhost:50051 &
 bash ./testscripts/wait_till_al_is_started.sh
 
-ASSET_ENDPOINT_PORT=${ASSET_ENDPOINT_PORT:-localhost:8081}
+ASSET_ENDPOINT_PORT=${ASSET_ENDPOINT_PORT:-localhost:8088}
 GRPC_SERVER_REGISTRY=${GRPC_SERVER_REGISTRY:-localhost:50051}
 
 echo "OS_NAME: ${OS_NAME}"
