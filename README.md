@@ -128,7 +128,7 @@ Highlight integration capabilities and supported device types.
 Guidelines for contributing and license details.
 
 ## Supported Shelly Devices for RPC Endpoints 
-All Shelly devices running the new RPC firmware (Gen2/Gen3, ESP32‑based) provide valid JSON responses for both `.../rpc/Shelly.GetDeviceInfo` and `.../rpc/GetStatus`. These endpoints allow you to retrieve device metadata and current operational status in a consistent way and are being used by 'scanner/shellyscanner.go'.
+All Shelly devices running the new RPC firmware (Gen2/Gen3, ESP32‑based) provide valid JSON responses for both `.../rpc/Shelly.GetDeviceInfo` and `.../rpc/GetStatus`. These endpoints allow you to retrieve device metadata and current operational status in a consistent way and are being used by `scanner/shellyscanner.go`.
 
 ### Supported Devices
 
