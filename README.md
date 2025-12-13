@@ -44,8 +44,7 @@ either start the discovery over the Industrial Asset Hub UI or via API Call.
 Go to the Inbox, start a scan, select the asset-gateway to perform the scan on. If shelly-asset-link has been successfully registered with the gateway, you can select it as scanner and start the scan. A modal will appear and inform you about the status of the discovery. You can as well check the jobs list and find all relevant information for this scan job. The scan will be performed using the preconfigured filters and options. After completion all discovered Shelly devices can be seen in the Inbox of Inustrial Asset Hub.
 ### 2. Using API calls
 to start a scan job viw API call, you need to consider some delimiters.
-1. You need to set up a server user in your Industrial Asset Hub Admin Console
-   Please refer to the [extensive documentation](https://cloud.sw.siemens.com/admin)
+1. You need to set up a server user in your [Siemens Xcelerator Admin Console](https://cloud.sw.siemens.com/admin)
 3. You need to generate an access token for your server user
    ```bash
    export TOKEN="$(\
