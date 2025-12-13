@@ -1,7 +1,7 @@
 # Shelly Asset Link
 
 ## Motivation
-**shelly-asset-link** is an integration module based on the https://github.com/industrial-asset-hub/asset-link-SDK of the Siemens Industrial Asset Hub. It enables the integration of IoT automation components from Shelly Group SE into the Industrial Asset Hub. This allows Shelly devices to be represented as digital assets within industrial applications and ecosystems, providing following advantages:
+**shelly-asset-link** is an integration module based on the [Asset Link SDK](https://github.com/industrial-asset-hub/asset-link-SDK) of the [Siemens Industrial Asset Hub](https://industrial-assets.io). It enables the integration of IoT automation components from Shelly Group SE into the Industrial Asset Hub. This allows Shelly devices to be represented as digital assets within industrial applications and ecosystems, providing following advantages:
 
 - **Interoperability:** The asset link seamlessly connects Shelly IoT automation components with the Siemens Industrial Asset Hub. The integration focuses on instantiated device data, providing a digital nameplate and all relevant descriptive metadata for each Shelly device. This ensures that devices are represented consistently as standardized digital assets within the Industrial Asset Hub ecosystem, enabling the use of Shelly devices in digital twins, asset management, and automation processes.
 
@@ -120,7 +120,7 @@ to start a scan job viw API call, you need to consider some delimiters.
     echo "  \"$IAH_BASE/v1/discovery/v1-earlyaccess/discoveries/$JOB_ID\" | jq ."
    ```
 
-   For further information, how to read the Industrial Asset Hub Inbox, onboard devices from inbox to asset list and alike, please refer to the Industrial Asset Hub Documentation.
+   For further information, how to read the Industrial Asset Hub Inbox, onboard devices from inbox to asset list and alike, please refer to the [Industrial Asset Hub Documentation](https://industrial-assets.io).
 
 
 ## Features: 
