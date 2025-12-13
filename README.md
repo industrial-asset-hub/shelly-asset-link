@@ -8,7 +8,36 @@
 - **Standardized Interfaces:** The asset link provides plug-and-play integration into the industrial-grade inventory service, Industrial Asset Hub, without the need for custom adapters or proprietary protocols. Built on a future-proof architecture, it enables seamless extension to additional management systems and services, ensuring scalability and long-term interoperability.
 
 ## Installation: 
-How to set up shelly-asset-link (dependencies, SDK link, Shelly device requirements). 
+How to set up shelly-asset-link (dependencies, SDK link, Shelly device requirements).
+
+## Configuration: 
+Shelly-Asset-Link comes with a standard fallback configuration which is invoked when the scan is started via the UI or when started via API call without filters and options.
+
+We use a mounted configuration file instead of hardcoding or environment variables because it allows runtime updates without restarting the container. This is critical for flexibility in production environments where quick adjustments to discovery parameters are needed. By mounting the file, you can change settings on the fly, and the service can reload them automatically.
+- Directory: /config inside the container
+- File: config.json stores discovery options, filters, and targets
+- Mounting in docker-compose.yml
+
+### config.json
+```json
+{
+  "subnet": "192.168.178",
+  "startIP": 1,
+  "endIP": 254,
+  "timeout": 120000,
+  "maxParallel": 20
+}
+```
+subnet: Base network segment for scanning, without trailing dot!
+startIP / endIP: Defines the IP range within the subnet.
+timeout: total scan timeout in milliseconds, once timeout threshold has been hit, ctx.Done will be send, resulting in cancellation of discovery job.
+maxParallel: Controls concurrency of scan tasks for faster scanning without overloading asset gateway host.
+
+# Precedence Rules
+API request parameters always override the configuration file for the current scan.
+If the API request does not provide values, the service falls back to config.json.
+Only if the file is missing or invalid, built-in defaults (scanner/shellyscanner.go) are used.
+
 ## Usage: 
 either start the discovery over the Industrial Asset Hub UI or via API Call.
 ### 1. Using Industrial Asset Hub UI
@@ -93,8 +122,7 @@ to start a scan job viw API call, you need to consider some delimiters.
 
    For further information, how to read the Industrial Asset Hub Inbox, onboard devices from inbox to asset list and alike, please refer to the Industrial Asset Hub Documentation.
 
-## Configuration: 
-Environment variables or configuration files needed. 
+
 ## Features: 
 Highlight integration capabilities and supported device types. 
 ## Contribution & License: 
