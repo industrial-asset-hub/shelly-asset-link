@@ -45,7 +45,7 @@ Go to the Inbox, start a scan, select the asset-gateway to perform the scan on. 
 ### 2. Using API calls
 to start a scan job viw API call, you need to consider some delimiters.
 1. You need to set up a server user in your Industrial Asset Hub Admin Console
-   Please refer to the extensive documentation (here)[https://cloud.sw.siemens.com/admin] 
+   Please refer to the [extensive documentation](https://cloud.sw.siemens.com/admin)
 3. You need to generate an access token for your server user
    ```bash
    export TOKEN="$(\
