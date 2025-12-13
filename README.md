@@ -28,12 +28,12 @@ We use a mounted configuration file instead of hardcoding or environment variabl
   "maxParallel": 20
 }
 ```
-subnet: Base network segment for scanning, without trailing dot!
-startIP / endIP: Defines the IP range within the subnet.
-timeout: total scan timeout in milliseconds, once timeout threshold has been hit, ctx.Done will be send, resulting in cancellation of discovery job.
-maxParallel: Controls concurrency of scan tasks for faster scanning without overloading asset gateway host.
+ - subnet: Base network segment for scanning, without trailing dot!
+ - startIP / endIP: Defines the IP range within the subnet.
+ - timeout: total scan timeout in milliseconds, once timeout threshold has been hit, 'ctx.Done' will be send, resulting in cancellation of discovery job.
+ - maxParallel: controls concurrency of scan tasks for faster scanning without overloading asset gateway host.
 
-# Precedence Rules
+### Precedence Rules
 API request parameters always override the configuration file for the current scan.
 If the API request does not provide values, the service falls back to config.json.
 Only if the file is missing or invalid, built-in defaults (scanner/shellyscanner.go) are used.
