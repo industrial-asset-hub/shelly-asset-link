@@ -127,10 +127,44 @@ Highlight integration capabilities and supported device types.
 ## Contribution & License: 
 Guidelines for contributing and license details.
 
+## Supported Shelly Devices for RPC Endpoints 
+All Shelly devices running the new RPC firmware (Gen2/Gen3, ESP32‑based) provide valid JSON responses for both `.../rpc/Shelly.GetDeviceInfo` and `.../rpc/GetStatus`. These endpoints allow you to retrieve device metadata and current operational status in a consistent way and are being used by 'scanner/shellyscanner.go'.
+
+### Supported Devices
+
+- **Shelly Plus Series (Gen2)**
+  - Plus 1 / 1PM
+  - Plus 2PM
+  - Plus i4 / i4DC
+  - Plus Plug S
+  - Plus HT
+  - Plus Smoke
+  - Plus Add‑On
+
+- **Shelly Pro Series (Gen2, DIN‑Rail)**
+  - Pro 1 / 1PM
+  - Pro 2 / 2PM
+  - Pro 3 / 3EM
+  - Pro 4PM
+
+- **Shelly Gen3 Series**
+  - 1 Gen3 / 1PM Gen3
+  - 2PM Gen3
+  - Plug Gen3
+  - Dimmer Gen3
+  - RGBW Gen3
+
+- **Special Devices with RPC Firmware**
+  - Shelly EM (newer revisions)
+  - Shelly BLU sensors (via RPC bridge)
+  - Shelly Wave (via RPC gateway)
+
+### Not Supported
+All **Gen1 devices** (e.g., Shelly 1, 2.5, Dimmer 2, RGBW2, older Plug S) only use the legacy REST API and do not respond to the required RPC endpoints.
 
 
 
-
+**********
 
 
 
