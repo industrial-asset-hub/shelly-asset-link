@@ -8,7 +8,16 @@
 
 
 
-
+## Installation: 
+How to set up shelly-asset-link (dependencies, SDK link, Shelly device requirements). 
+## Usage: 
+Example commands or code snippets for connecting Shelly devices to the Industrial Asset Hub. 
+## Configuration: 
+Environment variables or configuration files needed. 
+## Features: 
+Highlight integration capabilities and supported device types. 
+## Contribution & License: 
+Guidelines for contributing and license details.
 
 
 
