@@ -1,10 +1,6 @@
-# SPDX-FileCopyrightText: 2025 Michael Leipold (https://github.com/mlp0911)
-#
-# SPDX-License-Identifier: MIT
----
-project_name: shelly-asset-link
-
 version: 2
+
+project_name: shelly-asset-link
 
 before:
   hooks:
@@ -62,10 +58,10 @@ nfpms:
       - shelly-asset-link
     vendor: Machine Builder AG
     homepage: https://www.device-builder.local
-    maintainer: Michael Leipold <david@david-builder.local>
+    maintainer: Michael Leipold <https://github.com/mlp0911>
     description: |-
       Shelly Asset Link
-    license: Machine Builder AG 2025
+    license: 2025 Michael Leipold (https://github.com/mlp0911)
     formats:
       - deb
     bindir: /usr/bin

@@ -4,3 +4,4 @@
 #
 dist/
 *.ignore
+config/config.json
