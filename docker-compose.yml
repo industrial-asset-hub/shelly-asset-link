@@ -13,7 +13,7 @@ services:
     image: 'shelly-asset-link:latest'
     command:
       - '-grpc-server-endpoint-address=shelly-asset-link'
-      - '-grpc-server-address=:8088'
+      - '-grpc-server-address=:8081'
       - '-grpc-registry-address=grpc-server-registry:50051'
     environment:
       - AL_CONFIG_PATH=/config/config.json
@@ -21,8 +21,8 @@ services:
       - ./config/config.json:/config/config.json:ro
     networks:
       - 01-cdm
-    ports:
-      - 8088:8088
+#    ports:
+#      - 8081:8081
 
 networks:
   01-cdm:

@@ -6,7 +6,7 @@ FROM scratch
 
 COPY --chmod=0755 shelly-asset-link /al
 
-EXPOSE 8088
+EXPOSE 8081
 
 ENTRYPOINT ["/al"]
 
