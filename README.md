@@ -124,6 +124,49 @@ to start a scan job via API call, you need to consider some delimiters.
 
 ## Features: 
 Highlight integration capabilities and supported device types. 
+
+## CI Workflow and Asset Gateway Dependency
+
+Our GitHub Actions workflow is structured to ensure that integration tests only run when the required **Asset Gateway** is available.
+
+### Workflow Structure
+1. **Lint, Build, Unit Tests**
+   These jobs run independently and do not require the gateway.
+
+2. **Registration Job**
+   - Starts the gRPC Asset Gateway as a Docker container (`ghcr.io/industrial-asset-hub/iah/grpc-server-registry:0.1.6`).
+   - Waits until the gateway is reachable on `localhost:50051`.
+   - Executes registration tests to verify connectivity and basic functionality.
+
+3. **Feature Tests (Discovery, API, Validate Asset)**
+   - These jobs depend on the registration job (`needs: test-registration`).
+   - They only run after the gateway has been started and validated.
+   - This ensures that discovery, API, and asset validation tests are executed against a live gateway.
+
+4. **Release Jobs**
+   - Triggered only after all previous jobs succeed.
+   - Run either as an official release (on tags) or as a dry-run (on pull requests).
+
+### Developer Setup
+To run integration tests locally:
+1. Start the Asset Gateway container:
+   ```bash
+   docker run -d --name grpc-server-registry -p 50051:50051 ghcr.io/industrial-asset-hub/iah/grpc-server-registry:0.1.6
+   ```
+2. Run the registration tests:
+
+   ```bash
+      ./testscripts/registration.sh
+   ```
+3. Once the gateway is running, you can execute:
+
+   ```bash
+      ./testscripts/discovery.sh
+      ./testscripts/test-api.sh
+      ./testscripts/validate-asset.sh
+   ```
+Without a running gateway, only linting, build, and unit tests will execute successfully.
+
 ## Contribution & License: 
 Guidelines for contributing and license details.
 
