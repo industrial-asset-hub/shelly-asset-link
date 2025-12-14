@@ -1,5 +1,5 @@
 {
 "app_instance_id": "cdm-device-class-driver-mlp0911.cdm.al.shelly",
 "app_types": ["siemens.industrialassethub.discover.v1"],
-"device_schema_uri": ["cdm-device-class-driver-mlp0911.cdm.al.shelly"]
+"device_schema_uri": "cdm-device-class-driver-mlp0911.cdm.al.shelly"
 }
