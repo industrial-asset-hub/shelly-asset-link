@@ -7,7 +7,7 @@
 nohup go run -tags webserver main.go &
 bash ./testscripts/wait_till_al_is_started.sh
 
-ASSET_ENDPOINT_PORT=${ASSET_ENDPOINT_PORT:-localhost:8088}
+ASSET_ENDPOINT_PORT=${ASSET_ENDPOINT_PORT:-localhost:8081}
 
 echo "OS_NAME: ${OS_NAME}"
 echo "ARCH_NAME: ${ARCH_NAME}"
