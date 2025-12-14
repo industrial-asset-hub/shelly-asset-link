@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SPDX-FileCopyrightText: 2025 Machine Builder AG
+# SPDX-FileCopyrightText: Michael Leipold (https://github.com/mlp0911)
 #
 # SPDX-License-Identifier: MIT
 
@@ -13,9 +13,9 @@ GRPC_SERVER_REGISTRY=${GRPC_SERVER_REGISTRY:-localhost:50051}
 echo "OS_NAME: ${OS_NAME}"
 echo "ARCH_NAME: ${ARCH_NAME}"
 
-curl -L -o al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz https://github.com/industrial-asset-hub/asset-link-sdk/releases/download/v3.4.3/al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
-tar -xf al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
-chmod +x al-ctl
+# curl -L -o al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz https://github.com/industrial-asset-hub/asset-link-sdk/releases/download/v3.4.3/al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
+# tar -xf al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
+# chmod +x al-ctl
 
 # To validate registration of asset link
 ./al-ctl test registration -e ${ASSET_ENDPOINT_PORT} -r ${GRPC_SERVER_REGISTRY} -f ./registry.json
