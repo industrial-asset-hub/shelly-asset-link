@@ -59,7 +59,7 @@ to start a scan job via API call, you need to consider some delimiters.
     # SPDX-FileCopyrightText: 2025 Michael Leipold github.com/mlp0911
     # SPDX-License-Identifier: MIT
     
-    # --- Konfiguration ---
+    # --- Configuration ---
     IAH_BASE="https://cloud.eu1.sws.siemens.com/api/assethubapi"
     GATEWAY_ID="${GATEWAY_ID:-<gateway-id>}"
     ASSET_LINK_ID="${ASSET_LINK_ID:-cdm-device-class-driver-mlp0911.cdm.al.shelly}"
@@ -88,9 +88,9 @@ to start a scan job via API call, you need to consider some delimiters.
     EOF
     )
     
-    # --- Discovery-Job starten ---
+    # --- Start discovery-job ---
     RESP_FILE="/tmp/iah_post.json"
-    echo "Starte Discovery-Job für Gateway $GATEWAY_ID ..."
+    echo "starting discovery-job for gateway $GATEWAY_ID ..."
     curl -sS -k --http1.1 \
       -H "Authorization: Bearer $TOKEN" \
       -H "Accept: application/json" \
@@ -100,21 +100,21 @@ to start a scan job via API call, you need to consider some delimiters.
       --write-out "\nHTTP_CODE:%{http_code}\n" \
     | tee "$RESP_FILE"
     
-    # --- HTTP-Code und Job-ID extrahieren ---
+    # --- extract HTTP-code und job-ID ---
     HTTP_CODE=$(sed -n 's/^HTTP_CODE:\([0-9]\+\)$/\1/p' "$RESP_FILE")
     JOB_ID=$(jq -r '.jobId // .id // .data.id // empty' "$RESP_FILE")
     
     echo "HTTP_CODE=$HTTP_CODE"
     echo "JOB_ID=$JOB_ID"
     
-    # --- Prüfung auf Job-ID ---
+    # --- check job-ID ---
     if [ -z "$JOB_ID" ]; then
       echo "No jobId found in response – cancelled."
       exit 1
     fi
     
     echo "Discovery-Job started successfully. Please use JOB_ID=$JOB_ID for status-polling oder cancel."
-    echo "Example for Status-Polling:"
+    echo "Example for status-polling:"
     echo "curl -sS -k -H \"Authorization: Bearer \$TOKEN\" -H \"Accept: application/json\" \\"
     echo "  \"$IAH_BASE/v1/discovery/v1-earlyaccess/discoveries/$JOB_ID\" | jq ."
    ```
@@ -159,45 +159,13 @@ All Shelly devices running the new RPC firmware (Gen2/Gen3, ESP32‑based) provi
   - Shelly BLU sensors (via RPC bridge)
   - Shelly Wave (via RPC gateway)
 
-### Not Supported
+### Not Supported Devices
 All **Gen1 devices** (e.g., Shelly 1, 2.5, Dimmer 2, RGBW2, older Plug S) only use the legacy REST API and do not respond to the required RPC endpoints.
 
+### Good Read and More Infos on Shelly IoT Automation Devices
+- Official website of [Shelly Group SE](https://www.shelly.com/pages/location-selector).
+- Overview of [Shelly Portfolio](https://www.shelly.com/collections/all-products).
+- Shelly Developers [API Documentation](https://shelly-api-docs.shelly.cloud/). 
+  The scanner logic builds on these well-documented and openly available API calls, e.g. [`.../rpc/Shelly.GetStatus`](https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Shelly#shellygetstatus-example)
 
-
-**********
-
-
-
-This is a automatically created IAH Asset Link project.
-
-Before starting, you should synchronize the Go modules. This can be done by:
-
-```bash
-$ go mod tidy
-[...]
-```
-
-## Run && Building
-
-To start the AssetLink execute:
-
-```bash
-# Execute
-$ go run -tags webserver main.go --grpc-server-address=$(hostname -i):8080 \
---grpc-server-endpoint-address=$(hostname -i) --grpc-registry-address=localhost:50051 \
---http-address=$(hostname -i):8081
-[...]
-```
-
-To create a release:
-
-```bash
-$ goreleaser release --snapshot --clean
-$ ls -al dist/
-[...]
-```
-
-## Run the Pipeline
-The reference Asset Link includes GitHub workflow that automates the pipeline steps.
-The pipeline will be executed automatically during push operation or creation of pull request.
 
