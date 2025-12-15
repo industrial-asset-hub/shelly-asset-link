@@ -1,5 +1,0 @@
-{
-"app_instance_id": "cdm-device-class-driver-mlp0911.cdm.al.shelly",
-"app_types": ["siemens.connectivitysuite.discover.v1"],
-"driver_schema_uris": ["mlp0911.cdm.al.shelly"]
-}
