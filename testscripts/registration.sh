@@ -17,5 +17,7 @@ echo "ARCH_NAME: ${ARCH_NAME}"
 # tar -xf al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
 # chmod +x al-ctl
 
+./al-ctl list
+
 # To validate registration of asset link
 ./al-ctl test registration -e ${ASSET_ENDPOINT_PORT} -r ${GRPC_SERVER_REGISTRY} -f ./registry.json
