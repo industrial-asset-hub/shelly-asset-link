@@ -1,14 +1,20 @@
 # Shelly Asset Link
 
 ## Motivation
-**shelly-asset-link** is an integration module based on the [Asset Link SDK](https://github.com/industrial-asset-hub/asset-link-SDK) of the [Siemens Industrial Asset Hub](https://industrial-assets.io). It enables the integration of IoT automation components from Shelly Group SE into the Industrial Asset Hub. This allows Shelly devices to be represented as digital assets within industrial applications and ecosystems, providing following advantages:
+**shelly-asset-link** is an integration module based on the [Asset Link SDK](https://github.com/industrial-asset-hub/asset-link-SDK) of the [Siemens Industrial Asset Hub](https://industrial-assets.io). It enables the integration of IoT automation components from Shelly Group SE into the Industrial Asset Hub. This allows [Shelly devices](https://www.shelly.com/collections/all-products) to be represented as digital assets within industrial applications and ecosystems, providing following advantages:
 
 - **Interoperability:** The asset link seamlessly connects Shelly IoT automation components with the Siemens Industrial Asset Hub. The integration focuses on instantiated device data, providing a digital nameplate and all relevant descriptive metadata for each Shelly device. This ensures that devices are represented consistently as standardized digital assets within the Industrial Asset Hub ecosystem, enabling the use of Shelly devices in digital twins, asset management, and automation processes.
 
 - **Standardized Interfaces:** The asset link provides plug-and-play integration into the industrial-grade inventory service, Industrial Asset Hub, without the need for custom adapters or proprietary protocols. Built on a future-proof architecture, it enables seamless extension to additional management systems and services, ensuring scalability and long-term interoperability.
 
-## Installation: 
-How to set up shelly-asset-link (dependencies, SDK link, Shelly device requirements).
+## Prerequisites
+To run Shelly Asset Link beyond developer testing and use it productively:
+
+- [Asset-Gateway](https://github.com/industrial-asset-hub/asset-gateway) must be running as a container (central registration and communication service).
+- Shelly-Asset-Link container must be started (e.g., via docker-compose up).
+- Shelly-Asset-Link must be registered with the Asset-Gateway.
+- Optional but recommended: [al-ctl](https://github.com/industrial-asset-hub/asset-link-sdk/blob/main/cmd/al-ctl/al-ctl.go) CLI tool for registration and status checks (see [Asset-Link-SDK](https://github.com/industrial-asset-hub/asset-link-sdk)).
+- For production use, an Industrial Asset Hub subscription is required to access IAH services and features.
 
 ## Configuration: 
 Shelly-Asset-Link comes with a standard fallback configuration which is invoked when the scan is started via the UI or when started via API call without filters and options.
@@ -28,15 +34,15 @@ We use a mounted configuration file instead of hardcoding or environment variabl
   "maxParallel": 20
 }
 ```
- - subnet: Base network segment for scanning, without trailing dot!
- - startIP / endIP: Defines the IP range within the subnet.
- - timeout: total scan timeout in milliseconds, once timeout threshold has been hit, 'ctx.Done' will be send, resulting in cancellation of discovery job.
- - maxParallel: controls concurrency of scan tasks for faster scanning without overloading asset gateway host.
+ - **subnet:** Base network segment for scanning, without trailing dot!
+ - **startIP / endIP:** Defines the IP range within the subnet.
+ - **timeout:** total scan timeout in milliseconds, once timeout threshold has been hit, 'ctx.Done' will be send, resulting in cancellation of discovery job.
+ - **maxParallel:** controls concurrency of scan tasks for faster scanning without overloading asset gateway host.
 
 ### Precedence Rules
 API request parameters always override the configuration file for the current scan.
-If the API request does not provide values, the service falls back to config.json.
-Only if the file is missing or invalid, built-in defaults (scanner/shellyscanner.go) are used.
+If the API request does not provide values, or the discovery is ionvoked via the Industrial Asset Hub UI, the service falls back to `config/config.json`.
+Only if the file is missing or invalid, built-in defaults (`scanner/shellyscanner.go`) are used.
 
 ## Usage: 
 Either start the discovery over the Industrial Asset Hub UI or via API Call.
@@ -53,7 +59,7 @@ to start a scan job via API call, you need to consider some delimiters.
        -d "grant_type=client_credentials&client_id=<client_id>&client_secret=<client_secret>" \
      | jq -r '.access_token')"
    ```
-5. call the Industrial Asset Hub API
+5. Pre-built example script to call the Industrial Asset Hub API
    ```bash
     #!/bin/bash
     # SPDX-FileCopyrightText: 2025 Michael Leipold github.com/mlp0911
@@ -130,7 +136,7 @@ Guidelines for contributing and license details.
 ## Supported Shelly Devices for RPC Endpoints 
 All Shelly devices running the new RPC firmware (Gen2/Gen3, ESP32‑based) provide valid JSON responses for both `.../rpc/Shelly.GetDeviceInfo` and `.../rpc/GetStatus`. These endpoints allow you to retrieve device metadata and current operational status in a consistent way and are being used by `scanner/shellyscanner.go`.
 
-### Supported Devices
+### Supported Devices (as of December 2025)
 
 - **Shelly Plus Series (Gen2)**
   - Plus 1 / 1PM
@@ -167,5 +173,3 @@ All **Gen1 devices** (e.g., Shelly 1, 2.5, Dimmer 2, RGBW2, older Plug S) only u
 - Overview of [Shelly Portfolio](https://www.shelly.com/collections/all-products).
 - Shelly Developers [API Documentation](https://shelly-api-docs.shelly.cloud/). 
   The scanner logic builds on these well-documented and openly available API calls, e.g. [`.../rpc/Shelly.GetStatus`](https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Shelly#shellygetstatus-example)
-
-
