@@ -5,3 +5,5 @@
 dist/
 *.ignore
 config/config.json
+al-ctl
+al-ctl*
