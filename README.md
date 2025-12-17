@@ -1,5 +1,8 @@
 # Shelly Asset Link
 
+This project is developed in a personal capacity and is not affiliated with or endorsed by Siemens Aktiengesellschaft.
+
+
 ## Motivation
 **shelly-asset-link** is an integration module based on the [Asset Link SDK](https://github.com/industrial-asset-hub/asset-link-SDK) of the [Siemens Industrial Asset Hub](https://industrial-assets.io). It enables the integration of IoT automation components from Shelly Group SE into the Industrial Asset Hub. This allows [Shelly devices](https://www.shelly.com/collections/all-products) to be represented as digital assets within industrial applications and ecosystems, providing following advantages:
 
