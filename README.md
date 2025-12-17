@@ -1,6 +1,9 @@
 # Shelly Asset Link
 
-This project is developed in a personal capacity and is not affiliated with or endorsed by Siemens Aktiengesellschaft.
+
+> **⚠️ Disclaimer:**  
+> This repository contains a personal project developed using publicly available SDK functions and APIs. 
+> It is **not** an official Siemens or Shelly product and is provided under the MIT License.
 
 
 ## Motivation
