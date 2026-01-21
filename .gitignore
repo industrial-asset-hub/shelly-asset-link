@@ -6,3 +6,4 @@ dist/
 *.ignore
 config/config.json
 al-ctl*
+shelly-asset-link
