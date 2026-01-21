@@ -27,10 +27,10 @@ Shelly-Asset-Link comes with a standard fallback configuration which is invoked 
 
 We use a mounted configuration file instead of hardcoding or environment variables because it allows runtime updates without restarting the container. This is critical for flexibility in production environments where quick adjustments to discovery parameters are needed. By mounting the file, you can change settings on the fly, and the service can reload them automatically.
 - Directory: /config inside the container
-- File: config.json stores discovery options, filters, and targets
+- File: shelly_al_config.json stores discovery options, filters, and targets
 - Mounting in docker-compose.yml
 
-### config.json
+### shelly_al_config.json
 ```json
 {
   "subnet": "192.168.178",
@@ -47,7 +47,7 @@ We use a mounted configuration file instead of hardcoding or environment variabl
 
 ### Precedence Rules
 API request parameters always override the configuration file for the current scan.
-If the API request does not provide values, or the discovery is ionvoked via the Industrial Asset Hub UI, the service falls back to `config/config.json`.
+If the API request does not provide values, or the discovery is ionvoked via the Industrial Asset Hub UI, the service falls back to `config/shelly_al_config.json`.
 Only if the file is missing or invalid, built-in defaults (`scanner/shellyscanner.go`) are used.
 
 ## Usage: 
@@ -81,7 +81,7 @@ to start a scan job via API call, you need to consider some delimiters.
     # --- Prepare payload ---
     # --- set ipRange below ---
     # --- options timeout and maxParallel are currently not considered ---
-    # --- these can be set in the config.json ---
+    # --- these can be set in the shelly_al_config.json ---
    
     PAYLOAD_JSON=$(cat <<EOF
     {
