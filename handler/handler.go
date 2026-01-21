@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
- 
+
 package handler
 
 import (
@@ -43,14 +43,6 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 		return status.Errorf(codes.ResourceExhausted, "Another discovery job is already running")
 	}
 
-	// --- shelly-AL specific: dump raw DiscoverRequest ---
-	if req := discoveryConfig.GetDiscoveryRequest(); req != nil {
-		b, _ := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(req)
-		log.Info().Msgf("DEBUG raw DiscoverRequest: %s", string(b))
-	} else {
-		log.Warn().Msg("DEBUG: GetDiscoveryRequest() returned nil")
-	}
-
 	// --- shelly-AL specific: read IPRange from request; robust via protojson -> extract to json ---
 	var ipRange string
 	if req := discoveryConfig.GetDiscoveryRequest(); req != nil {
@@ -77,7 +69,7 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	// --- shelly-AL specific: read config.json as fallback/defaults
 	path := os.Getenv("AL_CONFIG_PATH")
 	if path == "" {
-		path = "/config/config.json"
+		path = "/config/shelly_al_config.json"
 	}
 	fileCfg := shellycfg.LoadFileConfig(path)
 
@@ -97,6 +89,7 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	// --- shelly-AL: finally fire shellyscanner.go with context so it can be stopped and configuration
 	results, err := scanner.RunScan(ctx, cfg)
 	if err != nil {
+		log.Error().Err(err).Msg("Scan failed")
 		return status.Errorf(codes.Unavailable, "Scan failed: %v", err)
 	}
 
