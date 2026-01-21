@@ -83,15 +83,14 @@ checksum:
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
-  
 
 dockers:
   - id: shelly-asset-link-linux-amd64
     ids:
       - shelly-asset-link
     image_templates:
-      - "shelly-asset-link:{{ .Tag }}-linux-amd64"
-      - "shelly-asset-link:latest-linux-amd64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-amd64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-amd64"
     dockerfile: Dockerfile
     use: buildx
     goos: linux
@@ -102,8 +101,8 @@ dockers:
     ids:
       - shelly-asset-link
     image_templates:
-      - "shelly-asset-link:{{ .Tag }}-linux-arm64"
-      - "shelly-asset-link:latest-linux-arm64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-arm64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-arm64"
     dockerfile: Dockerfile
     use: buildx
     goos: linux
@@ -112,14 +111,14 @@ dockers:
       - --platform=linux/arm64
 
 docker_manifests:
-  - name_template: "shelly-asset-link:{{ .Tag }}"
+  - name_template: "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}"
     image_templates:
-      - "shelly-asset-link:{{ .Tag }}-linux-amd64"
-      - "shelly-asset-link:{{ .Tag }}-linux-arm64"
-  - name_template: "shelly-asset-link:latest"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-amd64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-arm64"
+  - name_template: "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest"
     image_templates:
-      - "shelly-asset-link:latest-linux-amd64"
-      - "shelly-asset-link:latest-linux-arm64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-amd64"
+      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-arm64"
 
 changelog:
   sort: asc
