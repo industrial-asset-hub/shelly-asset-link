@@ -22,6 +22,18 @@ To run Shelly Asset Link beyond developer testing and use it productively:
 - Optional but recommended: [al-ctl](https://github.com/industrial-asset-hub/asset-link-sdk/blob/main/cmd/al-ctl/al-ctl.go) CLI tool for registration and status checks (see [Asset-Link-SDK](https://github.com/industrial-asset-hub/asset-link-sdk)).
 - For production use, an Industrial Asset Hub subscription is required to access IAH services and features.
 
+Start the Asset Gateway first and continue with the Shelly-Asset-Link startup by executing the following commands:
+
+
+```bash
+# Create a config folder
+mkdir -p config 
+# Get compose file for Shelly-Asset-Link
+wget https://raw.githubusercontent.com/industrial-asset-hub/shelly-asset-link/refs/heads/main/docker-compose.yml
+# Start the Shelly-Asset-Link
+docker-compose up --force-recreate
+```
+
 ## Configuration: 
 Shelly-Asset-Link comes with a standard fallback configuration which is invoked when the scan is started via the UI or when started via API call without filters and options.
 

@@ -10,7 +10,7 @@
 services:
   shelly-asset-link:
     restart: always
-    image: 'shelly-asset-link:latest'
+    image: 'ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest'
     command:
       - '-grpc-server-endpoint-address=shelly-asset-link'
       - '-grpc-server-address=:8081'
@@ -18,13 +18,15 @@ services:
     environment:
       - AL_CONFIG_PATH=/config/config.json
     volumes:
-      - ./config/config.json:/config/config.json:ro
+      - ./config/shelly_al_config.json:/config/config.json:ro
     networks:
       - 01-cdm
+#    Uncomment to expose the gRPC server port outside of Docker for testing
 #    ports:
 #      - 8081:8081
 
 networks:
   01-cdm:
     name: cdm
+    # Comment for local testing without IAH Asset Gateway
     external: true

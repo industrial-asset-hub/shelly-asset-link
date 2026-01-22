@@ -10,12 +10,21 @@ bash ./testscripts/wait_till_al_is_started.sh
 ASSET_ENDPOINT_PORT=${ASSET_ENDPOINT_PORT:-localhost:8081}
 GRPC_SERVER_REGISTRY=${GRPC_SERVER_REGISTRY:-localhost:50051}
 
+# Detect OS and ARCH if not already set
+if [ -z "${OS_NAME}" ]; then
+    OS_NAME=$(uname -s)
+fi
+
+if [ -z "${ARCH_NAME}" ]; then
+    ARCH_NAME=$(uname -m)
+fi
+
 echo "OS_NAME: ${OS_NAME}"
 echo "ARCH_NAME: ${ARCH_NAME}"
 
-# curl -L -o al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz https://github.com/industrial-asset-hub/asset-link-sdk/releases/download/v3.4.3/al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
-# tar -xf al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
-# chmod +x al-ctl
+curl -L -o al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz https://github.com/industrial-asset-hub/asset-link-sdk/releases/download/v3.6.2/al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
+tar -xf al-ctl_${OS_NAME}_${ARCH_NAME}.tar.gz
+chmod +x al-ctl
 
 ./al-ctl list
 
