@@ -33,8 +33,6 @@ wget https://raw.githubusercontent.com/industrial-asset-hub/shelly-asset-link/re
 # Start the Shelly-Asset-Link
 docker-compose up --force-recreate
 ```
-```
-
 
 ## Configuration: 
 Shelly-Asset-Link comes with a standard fallback configuration which is invoked when the scan is started via the UI or when started via API call without filters and options.
