@@ -102,14 +102,14 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 
 		deviceInfo := model.NewDevice("EthernetDevice", name)
 		deviceInfo.AddNameplate(
-			"Shelly Group SE",
+			"Shelly",
 			"",
 			r.DeviceInfo.Model,
-			"Test",
 			fmt.Sprintf("Shelly Appliance=%s Gen%d", r.DeviceInfo.App, r.DeviceInfo.Gen),
+			fmt.Sprintf("%d",r.DeviceInfo.Gen),
 			r.DeviceInfo.ID,
 		)
-		deviceInfo.AddSoftware("Firmware", r.DeviceInfo.FwID, true)
+		deviceInfo.AddSoftware("firmware", r.DeviceInfo.FwID, true) // switched to lower case for SSG compatibility
 
 		nicID := deviceInfo.AddNic("wifi", r.DeviceInfo.Mac)
 		if wifi, ok := r.Status["wifi"].(map[string]interface{}); ok {

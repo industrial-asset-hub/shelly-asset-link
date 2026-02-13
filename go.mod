@@ -1,6 +1,6 @@
 module shelly-asset-link
 
-go 1.24.10
+go 1.26
 
 require (
 	github.com/industrial-asset-hub/asset-link-sdk/v3 v3.6.2
