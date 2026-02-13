@@ -106,7 +106,7 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 			"",
 			r.DeviceInfo.Model,
 			fmt.Sprintf("Shelly Appliance=%s Gen%d", r.DeviceInfo.App, r.DeviceInfo.Gen),
-			r.DeviceInfo.Gen,
+			fmt.Sprintf("%d",r.DeviceInfo.Gen),
 			r.DeviceInfo.ID,
 		)
 		deviceInfo.AddSoftware("firmware", r.DeviceInfo.FwID, true) // switched to lower case for SSG compatibility
