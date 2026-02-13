@@ -56,12 +56,12 @@ nfpms:
     package_name: shelly-asset-link
     ids:
       - shelly-asset-link
-    vendor: Machine Builder AG
-    homepage: https://www.device-builder.local
+    vendor: Michael Leipold
+    homepage: https://github.com/mlp0911
     maintainer: Michael Leipold <https://github.com/mlp0911>
     description: |-
       Shelly Asset Link
-    license: 2025 Michael Leipold (https://github.com/mlp0911)
+    license: 2026 Michael Leipold (https://github.com/mlp0911)
     formats:
       - deb
     bindir: /usr/bin
