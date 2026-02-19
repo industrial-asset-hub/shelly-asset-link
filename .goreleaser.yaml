@@ -110,16 +110,6 @@ dockers:
     build_flag_templates:
       - --platform=linux/arm64
 
-docker_manifests:
-  - name_template: "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}"
-    image_templates:
-      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-amd64"
-      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:{{ .Tag }}-linux-arm64"
-  - name_template: "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest"
-    image_templates:
-      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-amd64"
-      - "ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest-linux-arm64"
-
 changelog:
   sort: asc
   groups:
