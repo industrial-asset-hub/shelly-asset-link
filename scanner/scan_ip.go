@@ -29,6 +29,22 @@ type ScanIPResult struct {
     EthStatusRaw    json.RawMessage `json:"ethStatusRaw,omitempty"`
 }
 
+type NetworkInterface struct {
+    Type          string `json:"type"`          // wifi or ethernet
+    Name          string `json:"name"`          // sta, sta1, eth0
+    MAC           string `json:"mac,omitempty"`
+    SSID          string `json:"ssid,omitempty"`
+    IPv4Address   string `json:"ipv4Address,omitempty"`
+    IPv4Netmask   string `json:"ipv4Netmask,omitempty"`
+    IPv4Gateway   string `json:"ipv4Gateway,omitempty"`
+    RSSI          int    `json:"rssi,omitempty"`
+    Link          bool   `json:"link,omitempty"`
+    Speed         int    `json:"speed,omitempty"`
+    Duplex        string `json:"duplex,omitempty"`
+    Connected     bool   `json:"connected"`
+}
+
+
 // callRPC sends a Shelly RPC request with SPX header and returns raw JSON.
 func callRPC(ctx context.Context, client *http.Client, ip string, method string, spxAuth string) (json.RawMessage, error) {
 
@@ -128,4 +144,126 @@ func ScanIP(ctx context.Context, ip string, timeout time.Duration, spxAuth strin
     fmt.Printf("[ScanIP] Finished scan for %s\n", ip)
 
     return result, nil
+}
+
+// Parsing of raw RPC responses into structured NetworkInterface list
+func parseInterfaces(result *ScanIPResult) error {
+
+    // --- Parse DeviceInfo for MAC ---
+    var devInfo struct {
+        MAC string `json:"mac"`
+    }
+    if result.DeviceInfoRaw != nil {
+        _ = json.Unmarshal(result.DeviceInfoRaw, &devInfo)
+    }
+
+    // --- Parse Wifi.GetConfig ---
+    var wifiConfig struct {
+        Config struct {
+            STA struct {
+                SSID   string `json:"ssid"`
+                Enable bool   `json:"enable"`
+            } `json:"sta"`
+            STA1 struct {
+                SSID   string `json:"ssid"`
+                Enable bool   `json:"enable"`
+            } `json:"sta1"`
+        } `json:"config"`
+    }
+    if result.WifiConfigRaw != nil {
+        _ = json.Unmarshal(result.WifiConfigRaw, &wifiConfig)
+    }
+
+    // --- Parse Wifi.GetStatus ---
+    var wifiStatus struct {
+        Status struct {
+            STAIP  string `json:"sta_ip"`
+            STA1IP string `json:"sta1_ip"`
+            RSSI   int    `json:"rssi"`
+        } `json:"status"`
+    }
+    if result.WifiStatusRaw != nil {
+        _ = json.Unmarshal(result.WifiStatusRaw, &wifiStatus)
+    }
+
+    // --- Parse Eth.GetConfig ---
+    var ethConfig struct {
+        Config struct {
+            Enable bool `json:"enable"`
+            IPv4   struct {
+                Method  string `json:"method"`
+                IP      string `json:"ip"`
+                Netmask string `json:"netmask"`
+                Gateway string `json:"gw"`
+            } `json:"ipv4"`
+        } `json:"config"`
+    }
+    if result.EthConfigRaw != nil {
+        _ = json.Unmarshal(result.EthConfigRaw, &ethConfig)
+    }
+
+    // --- Parse Eth.GetStatus ---
+    var ethStatus struct {
+        Status struct {
+            Link   bool   `json:"link"`
+            Speed  int    `json:"speed"`
+            Duplex string `json:"duplex"`
+        } `json:"status"`
+    }
+    if result.EthStatusRaw != nil {
+        _ = json.Unmarshal(result.EthStatusRaw, &ethStatus)
+    }
+
+    // --- Build interface list ---
+    var interfaces []NetworkInterface
+
+    // WiFi STA
+    if wifiConfig.Config.STA.Enable {
+        interfaces = append(interfaces, NetworkInterface{
+            Type:        "wifi",
+            Name:        "sta",
+            MAC:         devInfo.MAC,
+            SSID:        wifiConfig.Config.STA.SSID,
+            IPv4Address: wifiStatus.Status.STAIP,
+            RSSI:        wifiStatus.Status.RSSI,
+            Connected:   wifiStatus.Status.STAIP != "",
+        })
+    }
+
+    // WiFi STA1
+    if wifiConfig.Config.STA1.Enable {
+        interfaces = append(interfaces, NetworkInterface{
+            Type:        "wifi",
+            Name:        "sta1",
+            MAC:         devInfo.MAC,
+            SSID:        wifiConfig.Config.STA1.SSID,
+            IPv4Address: wifiStatus.Status.STA1IP,
+            RSSI:        wifiStatus.Status.RSSI,
+            Connected:   wifiStatus.Status.STA1IP != "",
+        })
+    }
+
+    // Ethernet
+    if ethConfig.Config.Enable {
+        interfaces = append(interfaces, NetworkInterface{
+            Type:        "ethernet",
+            Name:        "eth0",
+            MAC:         devInfo.MAC,
+            IPv4Address: ethConfig.Config.IPv4.IP,
+            IPv4Netmask: ethConfig.Config.IPv4.Netmask,
+            IPv4Gateway: ethConfig.Config.IPv4.Gateway,
+            Link:        ethStatus.Status.Link,
+            Speed:       ethStatus.Status.Speed,
+            Duplex:      ethStatus.Status.Duplex,
+            Connected:   ethStatus.Status.Link,
+        })
+    }
+
+    result.Interfaces = interfaces
+    return nil
+}
+
+// Parse interfaces from raw RPC data
+if err := parseInterfaces(result); err != nil {
+    fmt.Printf("[ScanIP] Interface parsing failed for %s: %v\n", ip, err)
 }
