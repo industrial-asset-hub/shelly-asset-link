@@ -27,6 +27,7 @@ type ScanIPResult struct {
     WifiStatusRaw   json.RawMessage `json:"wifiStatusRaw,omitempty"`
     EthConfigRaw    json.RawMessage `json:"ethConfigRaw,omitempty"`
     EthStatusRaw    json.RawMessage `json:"ethStatusRaw,omitempty"`
+    NetworkInterfaces []NetworkInterface `json:"networkInterfaces"`
 }
 
 type NetworkInterface struct {
@@ -259,7 +260,7 @@ func parseInterfaces(result *ScanIPResult) error {
         })
     }
 
-    result.Interfaces = interfaces
+    result.NetworkInterfaces = interfaces
     return nil
 }
 
