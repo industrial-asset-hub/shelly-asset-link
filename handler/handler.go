@@ -44,9 +44,9 @@ type AssetDiscovery struct {
     Nameplate    AssetNameplate     `json:"nameplate"`
     Connectivity AssetConnectivity  `json:"connectivity"`
     Capabilities AssetCapabilities  `json:"capabilities"`
-    Status       AssetStatus        `json:"status"`
     Interfaces   []AssetInterface   `json:"interfaces"`
 }
+
 
 type AssetNameplate struct {
     Model      string `json:"model"`
@@ -58,8 +58,9 @@ type AssetNameplate struct {
 
 type AssetConnectivity struct {
     Connected bool `json:"connected"`
-    RSSI      int  `json:"rssi,omitempty"`
+    RSSI      int  `json:"rssi,omitempty"` // optional, aber kein Zeitverlauf
 }
+
 
 type AssetCapabilities struct {
     Relays     int `json:"relays,omitempty"`
@@ -69,6 +70,7 @@ type AssetCapabilities struct {
     Covers     int `json:"covers,omitempty"`
     Sensors    int `json:"sensors,omitempty"`
 }
+
 
 type AssetStatus struct {
     Power      float64 `json:"power,omitempty"`
@@ -389,47 +391,7 @@ func nextIP(ip net.IP) net.IP {
 }
 
 // mapping of Shelly data points to Asset schema; can be extended with more fields as needed
-func mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
-
-    interfaces := make([]AssetInterface, 0)
-
-    for _, ni := range result.NetworkInterfaces {
-
-        iface := AssetInterface{
-            Type: ni.Type,
-            Name: ni.Name,
-            MAC:  ni.MAC,
-            Connected: ni.Connected,
-        }
-
-        if ni.Type == "wifi" {
-            iface.SSID = ni.SSID
-            iface.SignalStrength = ni.RSSI
-        }
-
-        iface.IPv4 = AssetIPv4{
-            Address: ni.IPv4Address,
-            Netmask: ni.IPv4Netmask,
-            Gateway: ni.IPv4Gateway,
-        }
-
-        if ni.Type == "ethernet" {
-            iface.Link = ni.Link
-            iface.Speed = ni.Speed
-            iface.Duplex = ni.Duplex
-        }
-
-        interfaces = append(interfaces, iface)
-    }
-
-    return AssetDiscovery{
-        IP:         result.IP,
-        Interfaces: interfaces,
-    }
-}
-
-// mapping of scan results to asset schema
-func mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
+ffunc mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
 
     // --- Parse DeviceInfo ---
     var devInfo struct {
@@ -503,15 +465,11 @@ func mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
     }
 
     // --- Capabilities ---
-    // Shelly models encode capabilities in their model name
-    // e.g. "Shelly Plus 1PM" → 1 relay + power meter
     asset.Capabilities = detectShellyCapabilities(devInfo.Model)
-
-    // --- Status ---
-    asset.Status = extractShellyStatus(result)
 
     return asset
 }
+
 
 // detectShellyCapabilities: simple heuristics based on model name; can be extended with more models and capabilities
 func detectShellyCapabilities(model string) AssetCapabilities {
