@@ -92,6 +92,7 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	}
 
 	// --- shelly-AL specific: read IPRange from request; robust via protojson -> extract to json ---
+	// --- old stuff can be removed once we are sure the new way works well; mlp0911, Feb22, 2026 ---
 	var ipRange string
 	if req := discoveryConfig.GetDiscoveryRequest(); req != nil {
 		for _, f := range req.GetFilters() {
@@ -134,11 +135,9 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	ctx, cancel := context.WithTimeout(context.Background(), scanTimeout)
 	defer cancel()
 
-	// --- shelly-AL: finally fire shellyscanner.go with context so it can be stopped and configuration
-	// alter aufruf
-	// results, err := scanner.RunScan(ctx, cfg)
-
-	go runStreamingScan(ctx, req.StartIP, req.EndIP, timeout, h.Config.SpxAuth, h.Publisher)
+	// --- shelly-AL: finally fire scan_IP.go per IP in range; 
+	// results are published as they come in, no waiting for full completion
+	go scanner.runStreamingScan(ctx, req.StartIP, req.EndIP, timeout, h.Publisher)
 
 
 	if err != nil {
@@ -312,7 +311,7 @@ func tryBase64ToText(s string) (string, bool) {
 // Will keep old version until we are sure the new one works well and provides more value; then we can remove the old one
 // mlp0911, Feb22, 2026
 
-func runStreamingScan(ctx context.Context, startIP, endIP string, timeout time.Duration, spxAuth string, publisher Publisher) error {
+func runStreamingScan(ctx context.Context, startIP, endIP string, timeout time.Duration, publisher Publisher) error {
 
     // Convert IP range to list
     ips, err := generateIPRange(startIP, endIP)

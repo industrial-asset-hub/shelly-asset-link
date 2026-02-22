@@ -18,8 +18,6 @@ import (
     "time"
 )
 
-// ScanIPResult holds raw RPC responses for a single IP.
-// Parsing into structured interfaces will be done in Commit C.
 type ScanIPResult struct {
     IP              string          `json:"ip"`
     DeviceInfoRaw   json.RawMessage `json:"deviceInfoRaw,omitempty"`
@@ -46,8 +44,8 @@ type NetworkInterface struct {
 }
 
 
-// callRPC sends a Shelly RPC request with SPX header and returns raw JSON.
-func callRPC(ctx context.Context, client *http.Client, ip string, method string, spxAuth string) (json.RawMessage, error) {
+// callRPC sends a Shelly RPC request and returns raw JSON.
+func callRPC(ctx context.Context, client *http.Client, ip string, method string) (json.RawMessage, error) {
 
     // Build RPC request body
     body := map[string]any{
@@ -68,7 +66,6 @@ func callRPC(ctx context.Context, client *http.Client, ip string, method string,
     }
 
     req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("SPX-Auth", spxAuth)
 
     // Debug
     fmt.Printf("[ScanIP] RPC → %s: %s\n", ip, method)
@@ -95,7 +92,7 @@ func callRPC(ctx context.Context, client *http.Client, ip string, method string,
 }
 
 // ScanIP performs all RPC calls for a single IP and stores raw JSON responses.
-func ScanIP(ctx context.Context, ip string, timeout time.Duration, spxAuth string) (*ScanIPResult, error) {
+func ScanIP(ctx context.Context, ip string, timeout time.Duration) (*ScanIPResult, error) {
 
     fmt.Printf("[ScanIP] Starting scan for %s\n", ip)
 
@@ -112,37 +109,41 @@ func ScanIP(ctx context.Context, ip string, timeout time.Duration, spxAuth strin
     }
 
     // --- Shelly.GetDeviceInfo ---
-    deviceInfo, err := callRPC(ctx, client, ip, "Shelly.GetDeviceInfo", spxAuth)
+    deviceInfo, err := callRPC(ctx, client, ip, "Shelly.GetDeviceInfo")
     if err != nil {
         return nil, fmt.Errorf("device info RPC failed: %w", err)
     }
     result.DeviceInfoRaw = deviceInfo
 
     // --- Wifi.GetConfig ---
-    wifiConfig, err := callRPC(ctx, client, ip, "Wifi.GetConfig", spxAuth)
+    wifiConfig, err := callRPC(ctx, client, ip, "Wifi.GetConfig")
     if err == nil {
         result.WifiConfigRaw = wifiConfig
     }
 
     // --- Wifi.GetStatus ---
-    wifiStatus, err := callRPC(ctx, client, ip, "Wifi.GetStatus", spxAuth)
+    wifiStatus, err := callRPC(ctx, client, ip, "Wifi.GetStatus")
     if err == nil {
         result.WifiStatusRaw = wifiStatus
     }
 
     // --- Eth.GetConfig (optional) ---
-    ethConfig, err := callRPC(ctx, client, ip, "Eth.GetConfig", spxAuth)
+    ethConfig, err := callRPC(ctx, client, ip, "Eth.GetConfig")
     if err == nil {
         result.EthConfigRaw = ethConfig
     }
 
     // --- Eth.GetStatus (optional) ---
-    ethStatus, err := callRPC(ctx, client, ip, "Eth.GetStatus", spxAuth)
+    ethStatus, err := callRPC(ctx, client, ip, "Eth.GetStatus")
     if err == nil {
         result.EthStatusRaw = ethStatus
     }
 
     fmt.Printf("[ScanIP] Finished scan for %s\n", ip)
+    // Parse interfaces
+    if err := parseInterfaces(result); err != nil {
+        fmt.Printf("[ScanIP] Interface parsing failed for %s: %v\n", ip, err)
+    }
 
     return result, nil
 }
@@ -262,9 +263,4 @@ func parseInterfaces(result *ScanIPResult) error {
 
     result.NetworkInterfaces = interfaces
     return nil
-}
-
-// Parse interfaces from raw RPC data
-if err := parseInterfaces(result); err != nil {
-    fmt.Printf("[ScanIP] Interface parsing failed for %s: %v\n", ip, err)
 }
