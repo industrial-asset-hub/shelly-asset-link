@@ -254,3 +254,55 @@ func tryBase64ToText(s string) (string, bool) {
 	}
 	return text, true
 }
+
+// new scan methodology starts here: after collecting raw RPC data, we parse it into structured NetworkInterface list
+// Will keep old version until we are sure the new one works well and provides more value; then we can remove the old one
+// mlp0911, Feb22, 2026
+
+func runStreamingScan(ctx context.Context, startIP, endIP string, timeout time.Duration, spxAuth string, publisher Publisher) error {
+
+    // Convert IP range to list
+    ips, err := generateIPRange(startIP, endIP)
+    if err != nil {
+        return fmt.Errorf("invalid IP range: %w", err)
+    }
+
+    batch := make([]AssetDiscovery, 0, 5)
+
+    for _, ip := range ips {
+
+        // Cancel handling
+        select {
+        case <-ctx.Done():
+            fmt.Println("[Scan] Cancelled by context")
+            return ctx.Err()
+        default:
+        }
+
+        // Perform scan
+        result, err := scanner.ScanIP(ctx, ip, timeout, spxAuth)
+        if err != nil {
+            fmt.Printf("[Scan] Error scanning %s: %v\n", ip, err)
+            continue
+        }
+
+        // Map to Asset Schema
+        asset := mapScanResultToAsset(result)
+
+        batch = append(batch, asset)
+
+        // Publish every 5 devices
+        if len(batch) == 5 {
+            publisher.PublishDiscovery(batch)
+            batch = batch[:0]
+        }
+    }
+
+    // Publish remaining devices
+    if len(batch) > 0 {
+        publisher.PublishDiscovery(batch)
+    }
+
+    return nil
+}
+
