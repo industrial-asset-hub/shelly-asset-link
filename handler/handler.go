@@ -33,6 +33,52 @@ type AssetLinkImplementation struct {
 	discoveryLock sync.Mutex
 }
 
+type AssetDiscovery struct {
+    ID           string             `json:"id"`
+    Manufacturer string             `json:"manufacturer"`
+    Model        string             `json:"model"`
+    Firmware     string             `json:"firmware"`
+    IP           string             `json:"ip"`
+    MAC          string             `json:"mac"`
+    DeviceClass  string             `json:"deviceClass"`
+    Nameplate    AssetNameplate     `json:"nameplate"`
+    Connectivity AssetConnectivity  `json:"connectivity"`
+    Capabilities AssetCapabilities  `json:"capabilities"`
+    Status       AssetStatus        `json:"status"`
+    Interfaces   []AssetInterface   `json:"interfaces"`
+}
+
+type AssetNameplate struct {
+    Model      string `json:"model"`
+    Firmware   string `json:"firmware"`
+    BatchID    string `json:"batchId,omitempty"`
+    Profile    string `json:"profile,omitempty"`
+    App        string `json:"app,omitempty"`
+}
+
+type AssetConnectivity struct {
+    Connected bool `json:"connected"`
+    RSSI      int  `json:"rssi,omitempty"`
+}
+
+type AssetCapabilities struct {
+    Relays     int `json:"relays,omitempty"`
+    Inputs     int `json:"inputs,omitempty"`
+    EMChannels int `json:"emChannels,omitempty"`
+    Lights     int `json:"lights,omitempty"`
+    Covers     int `json:"covers,omitempty"`
+    Sensors    int `json:"sensors,omitempty"`
+}
+
+type AssetStatus struct {
+    Power      float64 `json:"power,omitempty"`
+    Voltage    float64 `json:"voltage,omitempty"`
+    Current    float64 `json:"current,omitempty"`
+    Temperature float64 `json:"temperature,omitempty"`
+    RelayOn    bool    `json:"relayOn,omitempty"`
+}
+
+
 func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfig, devicePublisher publish.DevicePublisher) error {
 	log.Info().Msg("Handle Discovery Request")
 
@@ -87,7 +133,12 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	defer cancel()
 
 	// --- shelly-AL: finally fire shellyscanner.go with context so it can be stopped and configuration
-	results, err := scanner.RunScan(ctx, cfg)
+	// alter aufruf
+	// results, err := scanner.RunScan(ctx, cfg)
+
+	go runStreamingScan(ctx, req.StartIP, req.EndIP, timeout, h.Config.SpxAuth, h.Publisher)
+
+
 	if err != nil {
 		log.Error().Err(err).Msg("Scan failed")
 		return status.Errorf(codes.Unavailable, "Scan failed: %v", err)
@@ -306,3 +357,178 @@ func runStreamingScan(ctx context.Context, startIP, endIP string, timeout time.D
     return nil
 }
 
+// helper func to generate list of IPs from start and end IP
+
+func generateIPRange(startIP, endIP string) ([]string, error) {
+    start := net.ParseIP(startIP)
+    end := net.ParseIP(endIP)
+
+    if start == nil || end == nil {
+        return nil, fmt.Errorf("invalid IP format")
+    }
+
+    var ips []string
+    for ip := start; !ip.Equal(end); ip = nextIP(ip) {
+        ips = append(ips, ip.String())
+    }
+    ips = append(ips, end.String())
+
+    return ips, nil
+}
+
+func nextIP(ip net.IP) net.IP {
+    out := make(net.IP, len(ip))
+    copy(out, ip)
+    for j := len(out) - 1; j >= 0; j-- {
+        out[j]++
+        if out[j] != 0 {
+            break
+        }
+    }
+    return out
+}
+
+// mapping of Shelly data points to Asset schema; can be extended with more fields as needed
+func mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
+
+    interfaces := make([]AssetInterface, 0)
+
+    for _, ni := range result.NetworkInterfaces {
+
+        iface := AssetInterface{
+            Type: ni.Type,
+            Name: ni.Name,
+            MAC:  ni.MAC,
+            Connected: ni.Connected,
+        }
+
+        if ni.Type == "wifi" {
+            iface.SSID = ni.SSID
+            iface.SignalStrength = ni.RSSI
+        }
+
+        iface.IPv4 = AssetIPv4{
+            Address: ni.IPv4Address,
+            Netmask: ni.IPv4Netmask,
+            Gateway: ni.IPv4Gateway,
+        }
+
+        if ni.Type == "ethernet" {
+            iface.Link = ni.Link
+            iface.Speed = ni.Speed
+            iface.Duplex = ni.Duplex
+        }
+
+        interfaces = append(interfaces, iface)
+    }
+
+    return AssetDiscovery{
+        IP:         result.IP,
+        Interfaces: interfaces,
+    }
+}
+
+// mapping of scan results to asset schema
+func mapScanResultToAsset(result *scanner.ScanIPResult) AssetDiscovery {
+
+    // --- Parse DeviceInfo ---
+    var devInfo struct {
+        Model      string `json:"model"`
+        MAC        string `json:"mac"`
+        FWVersion  string `json:"fw_version"`
+        BatchID    string `json:"batch_id"`
+        Profile    string `json:"profile"`
+        App        string `json:"app"`
+    }
+    _ = json.Unmarshal(result.DeviceInfoRaw, &devInfo)
+
+    asset := AssetDiscovery{
+        ID:           devInfo.MAC,
+        Manufacturer: "Shelly",
+        Model:        devInfo.Model,
+        Firmware:     devInfo.FWVersion,
+        IP:           result.IP,
+        MAC:          devInfo.MAC,
+        DeviceClass:  devInfo.Model,
+        Nameplate: AssetNameplate{
+            Model:    devInfo.Model,
+            Firmware: devInfo.FWVersion,
+            BatchID:  devInfo.BatchID,
+            Profile:  devInfo.Profile,
+            App:      devInfo.App,
+        },
+    }
+
+    // --- Map network interfaces ---
+    asset.Interfaces = make([]AssetInterface, 0)
+    connected := false
+    rssi := 0
+
+    for _, ni := range result.NetworkInterfaces {
+
+        iface := AssetInterface{
+            Type:      ni.Type,
+            Name:      ni.Name,
+            MAC:       ni.MAC,
+            Connected: ni.Connected,
+            IPv4: AssetIPv4{
+                Address: ni.IPv4Address,
+                Netmask: ni.IPv4Netmask,
+                Gateway: ni.IPv4Gateway,
+            },
+        }
+
+        if ni.Type == "wifi" {
+            iface.SSID = ni.SSID
+            iface.SignalStrength = ni.RSSI
+            rssi = ni.RSSI
+        }
+
+        if ni.Type == "ethernet" {
+            iface.Link = ni.Link
+            iface.Speed = ni.Speed
+            iface.Duplex = ni.Duplex
+        }
+
+        if ni.Connected {
+            connected = true
+        }
+
+        asset.Interfaces = append(asset.Interfaces, iface)
+    }
+
+    asset.Connectivity = AssetConnectivity{
+        Connected: connected,
+        RSSI:      rssi,
+    }
+
+    // --- Capabilities ---
+    // Shelly models encode capabilities in their model name
+    // e.g. "Shelly Plus 1PM" → 1 relay + power meter
+    asset.Capabilities = detectShellyCapabilities(devInfo.Model)
+
+    // --- Status ---
+    asset.Status = extractShellyStatus(result)
+
+    return asset
+}
+
+// detectShellyCapabilities: simple heuristics based on model name; can be extended with more models and capabilities
+func detectShellyCapabilities(model string) AssetCapabilities {
+    caps := AssetCapabilities{}
+
+    if strings.Contains(model, "1PM") || strings.Contains(model, "1") {
+        caps.Relays = 1
+    }
+    if strings.Contains(model, "2PM") || strings.Contains(model, "2") {
+        caps.Relays = 2
+    }
+    if strings.Contains(model, "EM") {
+        caps.EMChannels = 2
+    }
+    if strings.Contains(model, "HT") {
+        caps.Sensors = 1
+    }
+
+    return caps
+}
