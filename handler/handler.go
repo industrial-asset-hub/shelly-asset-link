@@ -11,14 +11,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/industrial-asset-hub/asset-link-sdk/v3/config"
 	generated "github.com/industrial-asset-hub/asset-link-sdk/v3/generated/iah-discovery"
-	"github.com/industrial-asset-hub/asset-link-sdk/v3/model"
 	"github.com/industrial-asset-hub/asset-link-sdk/v3/publish"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -26,24 +25,34 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"shelly-asset-link/internal/shellycfg"
+	"shelly-asset-link/mapping"
 	"shelly-asset-link/scanner"
+	"shelly-asset-link/shelly"
 )
 
+// AssetLinkImplementation implements the IAH Discovery interface.
 type AssetLinkImplementation struct {
 	discoveryLock sync.Mutex
 }
 
+// Discover handles a discovery request from the Industrial Asset Hub.
+//
+// It orchestrates the two-stage pipeline:
+//  1. scanner.RunScan     — validates IPs via GetDeviceInfo (first-stage filter)
+//  2. shelly.FetchComponents — enriches each confirmed device via GetComponents
+//  3. mapping.Map         — transforms Shelly data into the IAH base schema
+//  4. DevicePublisher     — streams each device immediately to the IAH
 func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfig, devicePublisher publish.DevicePublisher) error {
 	log.Info().Msg("Handle Discovery Request")
 
-	// Concurrency guard
+	// Concurrency guard: only one discovery at a time
 	if m.discoveryLock.TryLock() {
 		defer m.discoveryLock.Unlock()
 	} else {
 		return status.Errorf(codes.ResourceExhausted, "Another discovery job is already running")
 	}
 
-	// --- shelly-AL specific: read IPRange from request; robust via protojson -> extract to json ---
+	// Extract IPRange filter from the Discovery request
 	var ipRange string
 	if req := discoveryConfig.GetDiscoveryRequest(); req != nil {
 		for _, f := range req.GetFilters() {
@@ -57,125 +66,96 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 			}
 		}
 	}
-	log.Info().Msgf("Discovery Config liefert: ipRange=%q", ipRange)
+	log.Info().Msgf("Discovery Config: ipRange=%q", ipRange)
 
-	// --- shelly-AL specific: only take ipRange from protobuff, rest via fileCfg/Defaults in BuildFromInputs ---
-	in := shellycfg.Inputs{
-		IpRange: ipRange,
-		// Cidr/Subnet/StartIP/EndIP/TimeoutMs/MaxParallel -> via merge/Defaults
-		// handover of other filters and options subject to later changes
-	}
+	in := shellycfg.Inputs{IpRange: ipRange}
 
-	// --- shelly-AL specific: read config.json as fallback/defaults
+	// Load file config as the baseline configuration source
 	path := os.Getenv("AL_CONFIG_PATH")
 	if path == "" {
 		path = "/config/shelly_al_config.json"
 	}
 	fileCfg := shellycfg.LoadFileConfig(path)
 
-	// --- build effective ScanConfig (final deduction and sanity happen in in merge.go)
-	cfg := shellycfg.BuildFromInputs(in, fileCfg)
-	log.Info().Msgf("Effective ScanConfig aus merge.go: {Subnet:%s StartIP:%d EndIP:%d Timeout:%s MaxParallel:%d}",
-		cfg.Subnet, cfg.StartIP, cfg.EndIP, cfg.Timeout, cfg.MaxParallel)
-
-	// --- shelly-AL: make sure timeout is no bogus
-	scanTimeout := cfg.Timeout
-	if scanTimeout <= 0 {
-		scanTimeout = 10 * time.Second
+	// Build effective ScanConfig; fails when no valid IP range can be determined
+	cfg, err := shellycfg.BuildFromInputs(in, fileCfg)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "Invalid scan configuration: %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), scanTimeout)
+	log.Info().Msgf("Effective ScanConfig: {Subnet:%s StartIP:%d EndIP:%d Timeout:%s}",
+		cfg.Subnet, cfg.StartIP, cfg.EndIP, cfg.Timeout)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	// --- shelly-AL: finally fire shellyscanner.go with context so it can be stopped and configuration
-	results, err := scanner.RunScan(ctx, cfg)
-	if err != nil {
-		log.Error().Err(err).Msg("Scan failed")
-		return status.Errorf(codes.Unavailable, "Scan failed: %v", err)
+	// Stage 1: scan — GetDeviceInfo per IP, only confirmed Shelly devices pass through
+	deviceCh, errCh := scanner.RunScan(ctx, cfg)
+
+	// Shared HTTP client for stage-2 enrichment calls
+	client := &http.Client{Timeout: cfg.Timeout}
+
+	for dev := range deviceCh {
+		// Stage 2: enrich — GetComponents for each validated device
+		comps, fetchErr := shelly.FetchComponents(ctx, client, dev.IPAddress)
+		if fetchErr != nil {
+			log.Warn().Err(fetchErr).Msgf("GetComponents failed for %s — skipping device", dev.IPAddress)
+			continue
+		}
+
+		// Stage 3: transform — pure mapping from Shelly model to IAH base schema
+		device := mapping.Map(dev.DeviceInfo, comps, dev.IPAddress)
+
+		// Stage 4: publish — stream immediately to IAH, no batch accumulation
+		if pubErr := devicePublisher.PublishDevice(device.ConvertToDiscoveredDevice()); pubErr != nil {
+			return pubErr
+		}
 	}
 
-	// --- shelly-AL: publish results
-	for _, r := range results {
-		name := "Shelly Device"
-		if r.DeviceInfo.Name != nil && *r.DeviceInfo.Name != "" {
-			name = *r.DeviceInfo.Name
-		}
-
-		deviceInfo := model.NewDevice("EthernetDevice", name)
-		deviceInfo.AddNameplate(
-			"Shelly",
-			"",
-			r.DeviceInfo.Model,
-			fmt.Sprintf("Shelly Appliance=%s Gen%d", r.DeviceInfo.App, r.DeviceInfo.Gen),
-			fmt.Sprintf("%d",r.DeviceInfo.Gen),
-			r.DeviceInfo.ID,
-		)
-		deviceInfo.AddSoftware("firmware", r.DeviceInfo.FwID, true) // switched to lower case for SSG compatibility
-
-		nicID := deviceInfo.AddNic("wifi", r.DeviceInfo.Mac)
-		if wifi, ok := r.Status["wifi"].(map[string]interface{}); ok {
-			if ip, ok := wifi["sta_ip"].(string); ok && ip != "" {
-				deviceInfo.AddIPv4(nicID, ip, "255.255.255.0", "")
-			} else {
-				deviceInfo.AddIPv4(nicID, r.IPAddress, "255.255.255.0", "")
-			}
-		} else {
-			deviceInfo.AddIPv4(nicID, r.IPAddress, "255.255.255.0", "")
-		}
-
-		discoveredDevice := deviceInfo.ConvertToDiscoveredDevice()
-		if err := devicePublisher.PublishDevice(discoveredDevice); err != nil {
-			return err
-		}
+	// Check for a fatal error reported by the scanner goroutine after the channel is drained
+	if scanErr := <-errCh; scanErr != nil {
+		log.Error().Err(scanErr).Msg("Scanner reported a fatal error")
 	}
 
 	return nil
 }
 
-// GetSupportedOptions hält die API-Kompatibilität; der Handler nutzt aktuell nur IPRange
-func (m *AssetLinkImplementation) GetSupportedOptions() []*generated.SupportedOption {
-	return []*generated.SupportedOption{
-		{Key: "timeout", Datatype: generated.VariantType_VT_STRING},
-		{Key: "timeoutMs", Datatype: generated.VariantType_VT_STRING},
-		{Key: "maxParallel", Datatype: generated.VariantType_VT_STRING},
-	}
-}
-
-// GetSupportedFilters deklariert IPRange als String (UI-Vertrag)
+// GetSupportedFilters declares IPRange as the accepted discovery filter.
 func (m *AssetLinkImplementation) GetSupportedFilters() []*generated.SupportedFilter {
 	return []*generated.SupportedFilter{
 		{Key: "IPRange", Datatype: generated.VariantType_VT_STRING},
 	}
 }
 
-// --- Helper: extract variant robustly as string ---
-// strategy: variant -> protojson.Marshal -> generic JSON -> take the first string that makes sense
-// supports base64-coded bytes/ rawData as well
+// GetSupportedOptions returns an empty list — no runtime options are currently supported.
+func (m *AssetLinkImplementation) GetSupportedOptions() []*generated.SupportedOption {
+	return []*generated.SupportedOption{}
+}
+
+// variantAsStringJSON extracts a string value from a Variant via protojson marshalling.
+// It also handles base64-encoded byte values.
 func variantAsStringJSON(v *generated.Variant) (string, bool) {
 	if v == nil {
 		return "", false
 	}
 
-	// to JSON
 	b, err := protojson.MarshalOptions{EmitUnpopulated: false}.Marshal(v)
 	if err != nil || len(b) == 0 {
 		return "", false
 	}
 
-	// parse
 	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
 		return "", false
 	}
 
-	// find first meaningful value
 	if s, ok := jsonAnyToString(m); ok && strings.TrimSpace(s) != "" {
 		return strings.TrimSpace(s), true
 	}
 	return "", false
 }
 
-// jsonAnyToString looks in generic JSON-structs for meaningful string
-// order: string (base64->text) > number > bool > rekursively in maps/lists
+// jsonAnyToString recursively searches generic JSON structures for a meaningful string value.
+// Priority: string (base64→text) > number > bool > map keys > list elements.
 func jsonAnyToString(x any) (string, bool) {
 	switch v := x.(type) {
 	case string:
@@ -191,7 +171,6 @@ func jsonAnyToString(x any) (string, bool) {
 		}
 		return "false", true
 	case map[string]any:
-		// 1) prioritise known keys
 		for _, key := range []string{
 			"stringValue", "string_value", "string",
 			"rawData", "raw_data", "bytes",
@@ -206,7 +185,6 @@ func jsonAnyToString(x any) (string, bool) {
 				}
 			}
 		}
-		// 2) else: first meaningful field
 		for _, val := range v {
 			if s, ok := jsonAnyToString(val); ok && strings.TrimSpace(s) != "" {
 				return s, true
@@ -214,7 +192,6 @@ func jsonAnyToString(x any) (string, bool) {
 		}
 		return "", false
 	case []any:
-		// list: take first element
 		for _, elem := range v {
 			if s, ok := jsonAnyToString(elem); ok && strings.TrimSpace(s) != "" {
 				return s, true
@@ -226,14 +203,11 @@ func jsonAnyToString(x any) (string, bool) {
 	}
 }
 
-// tryBase64ToText: decode base64-string to text
-// response: (text, true) if decoding makes sense
+// tryBase64ToText attempts to decode a base64 string to printable text.
 func tryBase64ToText(s string) (string, bool) {
-	// short heuristics-check: if s too short, skip decoding
 	if len(s) < 8 {
 		return "", false
 	}
-	// try std base64
 	data, err := base64.StdEncoding.DecodeString(s)
 	if err != nil || len(data) == 0 {
 		return "", false
@@ -242,7 +216,6 @@ func tryBase64ToText(s string) (string, bool) {
 	if text == "" {
 		return "", false
 	}
-	// simple printability check
 	printable := 0
 	for _, r := range text {
 		if r >= 32 && r <= 126 {

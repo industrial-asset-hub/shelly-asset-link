@@ -9,11 +9,10 @@ package shellycfg
 
 // Inputs are normalized values extracted in handler.go via SDK getters.
 type Inputs struct {
-	Cidr        string
-	IpRange     string
-	Subnet      string
-	StartIP     *int
-	EndIP       *int
-	TimeoutMs   *int
-	MaxParallel *int
+	Cidr      string
+	IpRange   string
+	Subnet    string
+	StartIP   *int
+	EndIP     *int
+	TimeoutMs *int
 }

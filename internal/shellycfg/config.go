@@ -14,11 +14,10 @@ import (
 )
 
 type FileScanConfig struct {
-	Subnet      string `json:"subnet"`
-	StartIP     int    `json:"startIP"`
-	EndIP       int    `json:"endIP"`
-	TimeoutMs   int    `json:"timeout"`
-	MaxParallel int    `json:"maxParallel"`
+	Subnet    string `json:"subnet"`
+	StartIP   int    `json:"startIP"`
+	EndIP     int    `json:"endIP"`
+	TimeoutMs int    `json:"timeout"`
 }
 
 func LoadFileConfig(path string) *FileScanConfig {
@@ -33,9 +32,6 @@ func LoadFileConfig(path string) *FileScanConfig {
 	c.Subnet = strings.TrimSuffix(strings.TrimSpace(c.Subnet), ".")
 	if c.TimeoutMs <= 0 {
 		c.TimeoutMs = 500
-	}
-	if c.MaxParallel <= 0 {
-		c.MaxParallel = 10
 	}
 	if c.StartIP <= 0 {
 		c.StartIP = 1
