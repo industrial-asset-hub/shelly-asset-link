@@ -29,13 +29,11 @@ func buildConnections(d *model.DeviceInfo, info shelly.DeviceInfo, comps shelly.
 		if ip != "" {
 			d.AddIPv4(nicID, ip, "255.255.255.0", "")
 		}
-	} else {
+	} else if info.Mac != "" {
 		// WiFi-only or fallback: use the device MAC from GetDeviceInfo.
-		if info.Mac != "" {
-			nicID := d.AddNic("wifi", info.Mac)
-			if ip != "" {
-				d.AddIPv4(nicID, ip, "255.255.255.0", "")
-			}
+		nicID := d.AddNic("wifi", info.Mac)
+		if ip != "" {
+			d.AddIPv4(nicID, ip, "255.255.255.0", "")
 		}
 	}
 }
