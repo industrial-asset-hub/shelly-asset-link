@@ -24,7 +24,7 @@ import (
 func buildOperations(d *model.DeviceInfo, comps shelly.ComponentsResponse) {
 	// Static: always available
 	d.AddCapabilities("reboot", true)
-	d.AddCapabilities("factory_reset", true)
+	d.AddCapabilities("reset_to_factory", true)
 
 	// Dynamic: firmware update availability
 	hasFwUpdate := comps.Sys != nil && len(comps.Sys.Status.AvailableUpdates) > 0

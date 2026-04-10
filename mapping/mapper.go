@@ -31,7 +31,7 @@ func Map(info shelly.DeviceInfo, comps shelly.ComponentsResponse, scanIP string)
 
 	buildIdentifiers(device, info, comps, scanIP)
 	buildConnections(device, info, comps, scanIP)
-	buildSoftware(device, comps)
+	buildSoftware(device, info)
 	buildFunctionalParts(device, comps)
 	buildOperations(device, comps)
 	buildAnnotations(device, comps)
