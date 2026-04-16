@@ -18,23 +18,25 @@ import (
 // file config (fileCfg) and returns the effective ScanConfig for the scanner.
 //
 // Priority order (highest to lowest):
-//  1. IPRange filter from the Discovery request
+//  1. Dynamic filter values from the Discovery request (IPRange, scanTimeoutMs, httpTimeoutMs)
 //  2. File config (shelly_al_config.json)
+//  3. Hardcoded defaults (ScanTimeout: 300s, HTTPTimeout: 2s)
 //
 // Returns an error when no valid IP range can be determined from the available sources.
 func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) (scanner.ScanConfig, error) {
 	var subnet string
-	var start, end, timeoutMs int
+	var start, end, scanTimeoutMs, httpTimeoutMs int
 
 	// Layer 1: seed from file config when available
 	if fileCfg != nil {
 		subnet = fileCfg.Subnet
 		start = fileCfg.StartIP
 		end = fileCfg.EndIP
-		timeoutMs = fileCfg.TimeoutMs
+		scanTimeoutMs = fileCfg.ScanTimeoutMs
+		httpTimeoutMs = fileCfg.HttpTimeoutMs
 	}
 
-	// Layer 2: IPRange filter from the Discovery request takes precedence
+	// Layer 2: Dynamic filter values from the Discovery request take precedence
 	if s := strings.TrimSpace(in.IpRange); s != "" {
 		if sn, st, en, ok := ParseIPRange(s); ok {
 			subnet, start, end = sn, st, en
@@ -51,6 +53,12 @@ func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) (scanner.ScanConfig, er
 		if in.EndIP != nil {
 			end = *in.EndIP
 		}
+	}
+	if in.ScanTimeoutMs != nil {
+		scanTimeoutMs = *in.ScanTimeoutMs
+	}
+	if in.HttpTimeoutMs != nil {
+		httpTimeoutMs = *in.HttpTimeoutMs
 	}
 
 	// Validate: refuse to produce a ScanConfig without a usable IP range
@@ -71,14 +79,20 @@ func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) (scanner.ScanConfig, er
 	if start > end {
 		start, end = end, start
 	}
-	if timeoutMs <= 0 {
-		timeoutMs = 300000
+
+	// Layer 3: hardcoded defaults
+	if scanTimeoutMs <= 0 {
+		scanTimeoutMs = 300000 // 5 minutes
+	}
+	if httpTimeoutMs <= 0 {
+		httpTimeoutMs = 2000 // 2 seconds
 	}
 
 	return scanner.ScanConfig{
-		Subnet:  subnet,
-		StartIP: start,
-		EndIP:   end,
-		Timeout: time.Duration(timeoutMs) * time.Millisecond,
+		Subnet:      subnet,
+		StartIP:     start,
+		EndIP:       end,
+		ScanTimeout: time.Duration(scanTimeoutMs) * time.Millisecond,
+		HTTPTimeout: time.Duration(httpTimeoutMs) * time.Millisecond,
 	}, nil
 }

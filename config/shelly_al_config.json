@@ -1,6 +1,7 @@
 {
-  "subnet": "10.0.0",
-  "startIP": 100,
-  "endIP": 250,
-  "timeout": 300000
+  "subnet": "10.0.20",
+  "startIP": 30,
+  "endIP": 101,
+  "scanTimeoutMs": 300000,
+  "httpTimeoutMs": 2000
 }

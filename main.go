@@ -26,7 +26,7 @@ import (
 
 var (
 	// values provided by linker
-	version = "dev"
+	version = "1.1.1"
 	commit  = "unknown"
 	date    = "unknown"
 

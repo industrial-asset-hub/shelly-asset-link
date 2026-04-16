@@ -10,7 +10,8 @@
 services:
   shelly-asset-link:
     restart: always
-    image: 'ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest'
+    build: .
+    # image: 'ghcr.io/industrial-asset-hub/al/shelly-asset-link:latest'
     command:
       - '-grpc-server-endpoint-address=shelly-asset-link'
       - '-grpc-server-address=:8081'

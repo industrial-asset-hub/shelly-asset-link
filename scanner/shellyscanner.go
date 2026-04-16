@@ -31,11 +31,12 @@ type DiscoveredDevice struct {
 
 // ScanConfig holds the parameters for a single scan run.
 type ScanConfig struct {
-	Subnet  string        // e.g. "10.0.0" without trailing dot
-	StartIP int           // first host number of the IP range
-	EndIP   int           // last host number of the IP range
-	Timeout time.Duration // per-request HTTP timeout
-	Logger  *log.Logger   // optional logger; falls back to os.Stdout
+	Subnet      string        // e.g. "10.0.0" without trailing dot
+	StartIP     int           // first host number of the IP range
+	EndIP       int           // last host number of the IP range
+	ScanTimeout time.Duration // maximum total duration for the entire scan
+	HTTPTimeout time.Duration // per-request HTTP timeout for individual Shelly API calls
+	Logger      *log.Logger   // optional logger; falls back to os.Stdout
 }
 
 // BuildIP constructs an IPv4 address from a subnet string and host number.
@@ -76,7 +77,7 @@ func RunScan(ctx context.Context, cfg ScanConfig) (<-chan DiscoveredDevice, <-ch
 			logger = log.New(os.Stdout, "scanner: ", log.LstdFlags)
 		}
 
-		client := &http.Client{Timeout: cfg.Timeout}
+		client := &http.Client{Timeout: cfg.HTTPTimeout}
 		start := time.Now()
 		found := 0
 

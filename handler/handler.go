@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -52,8 +53,9 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 		return status.Errorf(codes.ResourceExhausted, "Another discovery job is already running")
 	}
 
-	// Extract IPRange filter from the Discovery request
+	// Extract filters and options from the Discovery request
 	var ipRange string
+	var scanTimeoutMs, httpTimeoutMs *int
 	if req := discoveryConfig.GetDiscoveryRequest(); req != nil {
 		for _, f := range req.GetFilters() {
 			k := strings.TrimSpace(f.GetKey())
@@ -65,10 +67,36 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 				}
 			}
 		}
+		for _, o := range req.GetOptions() {
+			k := strings.TrimSpace(o.GetKey())
+			s, ok := variantAsStringJSON(o.GetValue())
+			switch {
+			case strings.EqualFold(k, "scanTimeoutMs"):
+				if ok {
+					if v, err := strconv.Atoi(s); err == nil && v > 0 {
+						scanTimeoutMs = &v
+					} else {
+						log.Warn().Msgf("scanTimeoutMs option invalid value %q — ignored", s)
+					}
+				}
+			case strings.EqualFold(k, "httpTimeoutMs"):
+				if ok {
+					if v, err := strconv.Atoi(s); err == nil && v > 0 {
+						httpTimeoutMs = &v
+					} else {
+						log.Warn().Msgf("httpTimeoutMs option invalid value %q — ignored", s)
+					}
+				}
+			}
+		}
 	}
 	log.Info().Msgf("Discovery Config: ipRange=%q", ipRange)
 
-	in := shellycfg.Inputs{IpRange: ipRange}
+	in := shellycfg.Inputs{
+		IpRange:       ipRange,
+		ScanTimeoutMs: scanTimeoutMs,
+		HttpTimeoutMs: httpTimeoutMs,
+	}
 
 	// Load file config as the baseline configuration source
 	path := os.Getenv("AL_CONFIG_PATH")
@@ -82,17 +110,17 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "Invalid scan configuration: %v", err)
 	}
-	log.Info().Msgf("Effective ScanConfig: {Subnet:%s StartIP:%d EndIP:%d Timeout:%s}",
-		cfg.Subnet, cfg.StartIP, cfg.EndIP, cfg.Timeout)
+	log.Info().Msgf("Effective ScanConfig: {Subnet:%s StartIP:%d EndIP:%d ScanTimeout:%s HTTPTimeout:%s}",
+		cfg.Subnet, cfg.StartIP, cfg.EndIP, cfg.ScanTimeout, cfg.HTTPTimeout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ScanTimeout)
 	defer cancel()
 
 	// Stage 1: scan — GetDeviceInfo per IP, only confirmed Shelly devices pass through
 	deviceCh, errCh := scanner.RunScan(ctx, cfg)
 
-	// Shared HTTP client for stage-2 enrichment calls
-	client := &http.Client{Timeout: cfg.Timeout}
+	// Shared HTTP client for stage-2 enrichment calls (short per-request timeout)
+	client := &http.Client{Timeout: cfg.HTTPTimeout}
 
 	for dev := range deviceCh {
 		// Stage 2: enrich — GetComponents for each validated device
@@ -119,16 +147,22 @@ func (m *AssetLinkImplementation) Discover(discoveryConfig config.DiscoveryConfi
 	return nil
 }
 
-// GetSupportedFilters declares IPRange as the accepted discovery filter.
+// GetSupportedFilters declares the accepted discovery filter:
+//   - IPRange: subnet scan range (e.g. "10.0.20.30-101")
 func (m *AssetLinkImplementation) GetSupportedFilters() []*generated.SupportedFilter {
 	return []*generated.SupportedFilter{
 		{Key: "IPRange", Datatype: generated.VariantType_VT_STRING},
 	}
 }
 
-// GetSupportedOptions returns an empty list — no runtime options are currently supported.
+// GetSupportedOptions declares the accepted discovery options:
+//   - scanTimeoutMs: maximum total scan duration in milliseconds
+//   - httpTimeoutMs: per-request HTTP timeout for individual Shelly API calls in milliseconds
 func (m *AssetLinkImplementation) GetSupportedOptions() []*generated.SupportedOption {
-	return []*generated.SupportedOption{}
+	return []*generated.SupportedOption{
+		{Key: "scanTimeoutMs", Datatype: generated.VariantType_VT_STRING},
+		{Key: "httpTimeoutMs", Datatype: generated.VariantType_VT_STRING},
+	}
 }
 
 // variantAsStringJSON extracts a string value from a Variant via protojson marshalling.
