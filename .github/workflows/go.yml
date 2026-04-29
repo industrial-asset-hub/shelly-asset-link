@@ -145,10 +145,32 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref_type != 'tag'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Prepare Environment
         uses: ./.github/actions/prepare
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+      - name: Compute dev version
+        id: devver
+        run: |
+          git fetch --tags
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          PREV_VER=${PREV_TAG#v}
+          MAJOR=$(echo "$PREV_VER" | cut -d. -f1)
+          MINOR=$(echo "$PREV_VER" | cut -d. -f2)
+          PATCH=$(echo "$PREV_VER" | cut -d. -f3)
+          NEXT_PATCH=$((PATCH + 1))
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DEV_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}-dev.${SHORT_SHA}"
+          echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
+          echo "prev_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+      - name: Login to GitHub Container Registry (GHCR.io)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Release (dry-run)
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -157,3 +179,9 @@ jobs:
           args: release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.devver.outputs.prev_tag }}
+      - name: Push dev Docker images
+        run: |
+          DEV_VERSION="${{ steps.devver.outputs.dev_version }}"
+          docker push ghcr.io/industrial-asset-hub/al/shelly-asset-link:${DEV_VERSION}-linux-amd64
+          docker push ghcr.io/industrial-asset-hub/al/shelly-asset-link:${DEV_VERSION}-linux-arm64
