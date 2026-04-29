@@ -180,8 +180,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.devver.outputs.prev_tag }}
-      - name: Push dev Docker images
-        run: |
-          DEV_VERSION="${{ steps.devver.outputs.dev_version }}"
-          docker push ghcr.io/industrial-asset-hub/al/shelly-asset-link:${DEV_VERSION}-linux-amd64
-          docker push ghcr.io/industrial-asset-hub/al/shelly-asset-link:${DEV_VERSION}-linux-arm64
