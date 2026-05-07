@@ -25,13 +25,13 @@ func buildConnections(d *model.DeviceInfo, info shelly.DeviceInfo, comps shelly.
 
 	if comps.Eth != nil && comps.Eth.Config.Mac != "" {
 		// Wired Ethernet: MAC from eth.config — also creates MacIdentifier automatically.
-		nicID := d.AddNic("eth", comps.Eth.Config.Mac)
+		nicID := d.AddNic("eth", formatMACAddress(comps.Eth.Config.Mac))
 		if ip != "" {
 			d.AddIPv4(nicID, ip, "255.255.255.0", "")
 		}
 	} else if info.Mac != "" {
 		// WiFi-only or fallback: use the device MAC from GetDeviceInfo.
-		nicID := d.AddNic("wifi", info.Mac)
+		nicID := d.AddNic("wifi", formatMACAddress(info.Mac))
 		if ip != "" {
 			d.AddIPv4(nicID, ip, "255.255.255.0", "")
 		}
