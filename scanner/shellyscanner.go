@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: 2025 Michael Leipold (https://github.com/mlp0911)
  *
  * SPDX-License-Identifier: MIT
- *
  */
 
 package scanner
@@ -16,40 +15,28 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
+
+	"shelly-asset-link/shelly"
 )
 
-// Data node returned by RPC/Shelly.GetDeviceInfo
-type ShellyDeviceInfo struct {
-	Name       *string `json:"name"`
-	ID         string  `json:"id"`
-	Mac        string  `json:"mac"`
-	Slot       int     `json:"slot"`
-	Model      string  `json:"model"`
-	Gen        int     `json:"gen"`
-	FwID       string  `json:"fw_id"`
-	Ver        string  `json:"ver"`
-	App        string  `json:"app"`
-	AuthEn     bool    `json:"auth_en"`
-	AuthDomain *string `json:"auth_domain"`
+// DiscoveredDevice is emitted by RunScan for every IP that responds successfully
+// to GET /rpc/Shelly.GetDeviceInfo. It bundles the confirmed IP address with the
+// validated device information — no status, no assumptions about connectivity beyond
+// the single successful HTTP call.
+type DiscoveredDevice struct {
+	IPAddress  string            // IP address at which the device was reached
+	DeviceInfo shelly.DeviceInfo // full response from Shelly.GetDeviceInfo
 }
 
-// Aggregated result per device
-type ShellyCombined struct {
-	DeviceInfo ShellyDeviceInfo       `json:"device_info"`
-	Status     map[string]interface{} `json:"status"`
-	IPAddress  string                 `json:"ip_address"` // added field
-}
-
-// Configuration for the scanner
+// ScanConfig holds the parameters for a single scan run.
 type ScanConfig struct {
 	Subnet      string        // e.g. "10.0.0" without trailing dot
-	StartIP     int           // beginning of the IP range
-	EndIP       int           // end of the IP range
-	Timeout     time.Duration // HTTP timeout
-	MaxParallel int           // maximum concurrency
-	Logger      *log.Logger   // logger for output
+	StartIP     int           // first host number of the IP range
+	EndIP       int           // last host number of the IP range
+	ScanTimeout time.Duration // maximum total duration for the entire scan
+	HTTPTimeout time.Duration // per-request HTTP timeout for individual Shelly API calls
+	Logger      *log.Logger   // optional logger; falls back to os.Stdout
 }
 
 // BuildIP constructs an IPv4 address from a subnet string and host number.
@@ -62,122 +49,92 @@ func BuildIP(subnet string, host int) (string, error) {
 	return ip.String(), nil
 }
 
-// RunScan performs device discovery in three steps:
-// 1. Call .../rpc/Shelly.GetDeviceInfo; only if successful,
-// 2. Call .../rpc/Shelly.GetStatus, then
-// 3. Return the combined result.
-// The context allows the scan to be cancelled externally.
-func RunScan(ctx context.Context, cfg ScanConfig) ([]ShellyCombined, error) {
-	// Use fallback logger if none is provided
-	logger := cfg.Logger
-	if logger == nil {
-		logger = log.New(os.Stdout, "scanner: ", log.LstdFlags)
-	}
+// RunScan starts an asynchronous sequential scan over the configured IP range.
+// It performs GET /rpc/Shelly.GetDeviceInfo for each IP as a first-stage filter:
+// only IPs that return a valid Shelly response are emitted on deviceCh.
+//
+// Returns two read-only channels:
+//   - deviceCh: emits one DiscoveredDevice per confirmed Shelly device, immediately upon detection.
+//   - errCh: carries at most one fatal error; closed when the goroutine exits.
+//
+// The caller must fully drain deviceCh (e.g. via range) to prevent the goroutine from blocking.
+// The context can be used to cancel or time out the scan externally.
+func RunScan(ctx context.Context, cfg ScanConfig) (<-chan DiscoveredDevice, <-chan error) {
+	deviceCh := make(chan DiscoveredDevice, 1)
+	errCh := make(chan error, 1)
 
-	client := &http.Client{Timeout: cfg.Timeout}
+	go func() {
+		defer close(deviceCh)
+		defer close(errCh)
+		defer func() {
+			if r := recover(); r != nil {
+				errCh <- fmt.Errorf("scanner panic: %v", r)
+			}
+		}()
 
-	var results []ShellyCombined
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, cfg.MaxParallel)
+		logger := cfg.Logger
+		if logger == nil {
+			logger = log.New(os.Stdout, "scanner: ", log.LstdFlags)
+		}
 
-	// Start stopwatch
-	start := time.Now()
+		client := &http.Client{Timeout: cfg.HTTPTimeout}
+		start := time.Now()
+		found := 0
 
-	for i := cfg.StartIP; i <= cfg.EndIP; i++ {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(i int) {
-			defer wg.Done()
-			defer func() { <-sem }()
+		for i := cfg.StartIP; i <= cfg.EndIP; i++ {
+			select {
+			case <-ctx.Done():
+				logger.Printf("Scan aborted after %d IPs: %v", i-cfg.StartIP, ctx.Err())
+				return
+			default:
+			}
 
 			ip, err := BuildIP(cfg.Subnet, i)
 			if err != nil {
-				logger.Printf("Failed to build IP: %v", err)
-				return
+				logger.Printf("Failed to build IP for host %d: %v", i, err)
+				continue
 			}
-			logger.Printf("Scanning %s...", ip)
 
-			// Step 1: Request DeviceInfo with context
+			// First-stage filter: only IPs with a valid GetDeviceInfo response proceed.
 			urlInfo := fmt.Sprintf("http://%s/rpc/Shelly.GetDeviceInfo", ip)
 			reqInfo, _ := http.NewRequestWithContext(ctx, "GET", urlInfo, nil)
 			respInfo, err := client.Do(reqInfo)
 			if err != nil {
-				logger.Printf("No response from %s: %v", ip, err)
-				return
+				continue // no Shelly at this IP — silent skip
 			}
 			bodyInfo, _ := io.ReadAll(respInfo.Body)
 			respInfo.Body.Close()
 
-			var info ShellyDeviceInfo
+			var info shelly.DeviceInfo
 			if err := json.Unmarshal(bodyInfo, &info); err != nil {
-				logger.Printf("Invalid DeviceInfo from %s: %v", ip, err)
-				return
+				logger.Printf("Invalid DeviceInfo JSON from %s: %v", ip, err)
+				continue
 			}
 
-			logger.Printf("Found: %s (%s)", safeStr(info.Name), info.Mac)
+			logger.Printf("Found Shelly device: %s (MAC: %s) at %s", safeStr(info.Name), info.Mac, ip)
 
-			// Step 2: Request status only if DeviceInfo succeeded
-			status := make(map[string]interface{})
-			urlStatus := fmt.Sprintf("http://%s/rpc/Shelly.GetStatus", ip)
-			reqStatus, _ := http.NewRequestWithContext(ctx, "GET", urlStatus, nil)
-			respStatus, err := client.Do(reqStatus)
-			if err == nil {
-				bodyStatus, _ := io.ReadAll(respStatus.Body)
-				respStatus.Body.Close()
-
-				var raw map[string]json.RawMessage
-				if err := json.Unmarshal(bodyStatus, &raw); err == nil {
-					for key, val := range raw {
-						var node interface{}
-						if err := json.Unmarshal(val, &node); err == nil {
-							status[key] = node
-						}
-					}
-				}
-			} else {
-				logger.Printf("Status not available from %s: %v", ip, err)
-			}
-
-			// Always record the device, even if status is missing
-			mu.Lock()
-			results = append(results, ShellyCombined{
-				DeviceInfo: info,
-				Status:     status,
+			found++
+			deviceCh <- DiscoveredDevice{
 				IPAddress:  ip,
-			})
-			mu.Unlock()
-		}(i)
-	}
-
-	wg.Wait()
-
-	// Compute statistics
-	elapsed := time.Since(start)
-	totalIPs := cfg.EndIP - cfg.StartIP + 1
-	found := len(results)
-
-	// Count Shelly devices (heuristic: App or Model is set)
-	shellyCount := 0
-	for _, r := range results {
-		if r.DeviceInfo.App != "" || r.DeviceInfo.Model != "" {
-			shellyCount++
+				DeviceInfo: info,
+			}
 		}
-	}
 
-	// Summary output
-	logger.Printf("%d IP addresses scanned in %02d:%02d, %d devices detected, %d identified as Shelly",
-		totalIPs,
-		int(elapsed.Minutes()),
-		int(elapsed.Seconds())%60,
-		found,
-		shellyCount,
-	)
+		elapsed := time.Since(start)
+		totalIPs := cfg.EndIP - cfg.StartIP + 1
+		logger.Printf(
+			"%d IP addresses scanned in %02d:%02d, %d Shelly devices found",
+			totalIPs,
+			int(elapsed.Minutes()),
+			int(elapsed.Seconds())%60,
+			found,
+		)
+	}()
 
-	return results, nil
+	return deviceCh, errCh
 }
 
-// Helper: safely dereference *string
+// safeStr safely dereferences a *string pointer.
 func safeStr(s *string) string {
 	if s == nil {
 		return ""

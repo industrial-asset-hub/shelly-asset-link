@@ -7,38 +7,43 @@
 package shellycfg
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"shelly-asset-link/scanner"
 )
 
-// BuildFromInputs merges inputs delivered at runtime (Discovery-filters/options)
-// w/ the static file config (fileCfg) and delivers effective ScanConfig
-// for shellyscanner
+// BuildFromInputs merges runtime inputs (Discovery filters/options) with the static
+// file config (fileCfg) and returns the effective ScanConfig for the scanner.
+//
+// Priority order (highest to lowest):
+//  1. Dynamic filter values from the Discovery request (IPRange, scanTimeoutMs, httpTimeoutMs)
+//  2. File config (shelly_al_config.json)
+//  3. Hardcoded defaults (ScanTimeout: 300s, HTTPTimeout: 2s)
+//
+// Returns an error when no valid IP range can be determined from the available sources.
+func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) (scanner.ScanConfig, error) {
+	var subnet string
+	var start, end, scanTimeoutMs, httpTimeoutMs int
 
-// new BuildFromInputs w/ new order and priority
-
-func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) scanner.ScanConfig {
-	// Defaults (Fallback)
-	subnet, start, end := "10.0.0", 1, 254
-	timeoutMs, maxPar := 300000, 10
-
-	// use file cfg if existing
+	// Layer 1: seed from file config when available
 	if fileCfg != nil {
-		subnet, start, end = fileCfg.Subnet, fileCfg.StartIP, fileCfg.EndIP
-		timeoutMs, maxPar = fileCfg.TimeoutMs, fileCfg.MaxParallel
+		subnet = fileCfg.Subnet
+		start = fileCfg.StartIP
+		end = fileCfg.EndIP
+		scanTimeoutMs = fileCfg.ScanTimeoutMs
+		httpTimeoutMs = fileCfg.HttpTimeoutMs
 	}
 
-	// --- Filter-logic only ipRange for a start ---
-	s := strings.TrimSpace(in.IpRange)
-	if s != "" {
+	// Layer 2: Dynamic filter values from the Discovery request take precedence
+	if s := strings.TrimSpace(in.IpRange); s != "" {
 		if sn, st, en, ok := ParseIPRange(s); ok {
 			subnet, start, end = sn, st, en
 		}
-		// Parse-error → fileCfg/Defaults stays active
+		// On parse error the file config values stay active
 	} else {
-		// explicit Subnet/Start/End from Inputs
+		// Explicit subnet / start / end fields from Inputs
 		if strings.TrimSpace(in.Subnet) != "" {
 			subnet = strings.TrimSuffix(strings.TrimSpace(in.Subnet), ".")
 		}
@@ -48,10 +53,23 @@ func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) scanner.ScanConfig {
 		if in.EndIP != nil {
 			end = *in.EndIP
 		}
-		// CIDR & Options ignored for now
+	}
+	if in.ScanTimeoutMs != nil {
+		scanTimeoutMs = *in.ScanTimeoutMs
+	}
+	if in.HttpTimeoutMs != nil {
+		httpTimeoutMs = *in.HttpTimeoutMs
 	}
 
-	// --- Sanity-Checks ---
+	// Validate: refuse to produce a ScanConfig without a usable IP range
+	if subnet == "" || start <= 0 || end <= 0 {
+		return scanner.ScanConfig{}, fmt.Errorf(
+			"no valid scan range configured: subnet=%q start=%d end=%d — provide a config file or an IPRange filter",
+			subnet, start, end,
+		)
+	}
+
+	// Sanity-checks
 	if start < 1 {
 		start = 1
 	}
@@ -61,18 +79,20 @@ func BuildFromInputs(in Inputs, fileCfg *FileScanConfig) scanner.ScanConfig {
 	if start > end {
 		start, end = end, start
 	}
-	if timeoutMs <= 0 {
-		timeoutMs = 300000
+
+	// Layer 3: hardcoded defaults
+	if scanTimeoutMs <= 0 {
+		scanTimeoutMs = 300000 // 5 minutes
 	}
-	if maxPar <= 0 {
-		maxPar = 10
+	if httpTimeoutMs <= 0 {
+		httpTimeoutMs = 2000 // 2 seconds
 	}
 
 	return scanner.ScanConfig{
 		Subnet:      subnet,
 		StartIP:     start,
 		EndIP:       end,
-		Timeout:     time.Duration(timeoutMs) * time.Millisecond,
-		MaxParallel: maxPar,
-	}
+		ScanTimeout: time.Duration(scanTimeoutMs) * time.Millisecond,
+		HTTPTimeout: time.Duration(httpTimeoutMs) * time.Millisecond,
+	}, nil
 }
