@@ -26,7 +26,7 @@ func formatMACAddress(mac string) string {
 		}
 		return r
 	}, mac)
-	clean = strings.ToLower(clean)
+	clean = strings.ToUpper(clean)
 	if len(clean) != 12 {
 		return mac
 	}
